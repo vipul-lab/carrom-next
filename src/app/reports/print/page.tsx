@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { connectToDatabase } from '@/lib/db'
-import { requireSession } from '@/lib/auth'
 import { buildReport, teamStandings } from '@/lib/services/reports'
 import { customPeriod, periodFromKey, periodLabel } from '@/lib/stats-period'
 import { formatDateTime, formatLongDate, numberFormat } from '@/lib/format'
@@ -24,7 +23,6 @@ export default async function ReportPrintPage({
 }: {
   searchParams: Promise<{ period?: string; from?: string; to?: string }>
 }) {
-  await requireSession()
 
   const params = await searchParams
   const period =

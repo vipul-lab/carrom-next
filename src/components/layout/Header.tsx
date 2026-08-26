@@ -4,10 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { Avatar } from '@/components/ui/Avatar'
-import { logoutAction } from '@/actions/auth'
 import type { Notification } from '@/lib/services/notifications'
-import type { SessionUser } from '@/lib/auth'
 
 const TONES: Record<Notification['tone'], string> = {
   warning: 'bg-amber-50 text-amber-600',
@@ -44,17 +41,14 @@ function useDismissable() {
 
 export function Header({
   notifications,
-  user,
   onOpenSidebar,
 }: {
   notifications: Notification[]
-  user: SessionUser
   onOpenSidebar: () => void
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const bell = useDismissable()
-  const profile = useDismissable()
 
   return (
     <header className="no-print sticky top-0 z-30 border-b border-navy-100 bg-white/90 backdrop-blur">
@@ -157,53 +151,13 @@ export function Header({
             )}
           </div>
 
-          {/* Admin profile */}
-          <div className="relative" ref={profile.ref}>
-            <button
-              type="button"
-              onClick={() => profile.setOpen(!profile.open)}
-              aria-expanded={profile.open}
-              aria-haspopup="true"
-              className="flex items-center gap-2 rounded-lg py-1.5 pr-2 pl-1.5 transition hover:bg-navy-100"
-            >
-              <Avatar initials={(user.name || 'A').charAt(0).toUpperCase()} size="sm" />
-              <span className="hidden text-left sm:block">
-                <span className="block max-w-32 truncate text-sm font-semibold text-navy-900">
-                  {user.name}
-                </span>
-                <span className="block text-[11px] text-slate-500">Administrator</span>
-              </span>
-              <Icon name="chevron-down" className="h-4 w-4 text-navy-400" />
-            </button>
-
-            {profile.open && (
-              <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-raised">
-                <div className="border-b border-navy-100 px-4 py-3">
-                  <p className="truncate text-sm font-semibold text-navy-900">{user.name}</p>
-                  <p className="truncate text-xs text-slate-500">{user.email}</p>
-                </div>
-
-                <Link
-                  href="/settings"
-                  onClick={() => profile.setOpen(false)}
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-navy-700 transition hover:bg-navy-50"
-                >
-                  <Icon name="cog" className="h-4 w-4 text-navy-400" />
-                  Settings
-                </Link>
-
-                <form action={logoutAction}>
-                  <button
-                    type="submit"
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 transition hover:bg-red-50"
-                  >
-                    <Icon name="logout" className="h-4 w-4" />
-                    Sign out
-                  </button>
-                </form>
-              </div>
-            )}
-          </div>
+          <Link
+            href="/settings"
+            className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-navy-700 transition hover:bg-navy-100"
+          >
+            <Icon name="cog" className="h-4 w-4 text-navy-400" />
+            <span className="hidden sm:block">Settings</span>
+          </Link>
         </div>
       </div>
     </header>

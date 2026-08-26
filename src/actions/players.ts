@@ -8,7 +8,6 @@ import { connectToDatabase } from '@/lib/db'
 import { Player } from '@/lib/models/Player'
 import { Team } from '@/lib/models/Team'
 import { playerAppearanceCount } from '@/lib/services/deletion'
-import { requireSession } from '@/lib/auth'
 import { deleteImage, hasFile, storeImage, UploadError, validateImage } from '@/lib/blob'
 import { RECORD_STATUSES } from '@/lib/enums'
 import type { ActionState } from '@/lib/action-state'
@@ -71,8 +70,6 @@ export async function createPlayerAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireSession()
-
   const parsed = readPlayerForm(formData)
   if (!parsed.success) return { ok: false, errors: parsed.error.flatten().fieldErrors }
 
@@ -115,8 +112,6 @@ export async function updatePlayerAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That member no longer exists.' }
 
@@ -163,8 +158,6 @@ export async function updatePlayerAction(
 }
 
 export async function deletePlayerAction(formData: FormData): Promise<void> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/players?err=That+member+no+longer+exists.')
 

@@ -1,8 +1,7 @@
 /**
  * CLI entry point for the seeder: `npm run seed`.
  *
- * Reads MONGODB_URI and the ADMIN_* credentials from the environment, so the
- * real admin password never lands in a file under source control.
+ * Reads MONGODB_URI from the environment.
  */
 
 import { config } from 'dotenv'

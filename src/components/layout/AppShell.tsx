@@ -5,19 +5,16 @@ import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { Flash } from './Flash'
 import type { Notification } from '@/lib/services/notifications'
-import type { SessionUser } from '@/lib/auth'
 
 /**
  * The admin chrome. Only the drawer's open/closed flag is client state — the
  * page content itself is streamed in from the server as `children`.
  */
 export function AppShell({
-  user,
   notifications,
   appName,
   children,
 }: {
-  user: SessionUser
   notifications: Notification[]
   appName: string
   children: ReactNode
@@ -29,11 +26,7 @@ export function AppShell({
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} appName={appName} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          notifications={notifications}
-          user={user}
-          onOpenSidebar={() => setSidebarOpen(true)}
-        />
+        <Header notifications={notifications} onOpenSidebar={() => setSidebarOpen(true)} />
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <Flash className="mb-6" />

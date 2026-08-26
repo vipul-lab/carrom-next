@@ -24,10 +24,6 @@ function check(label: string, condition: boolean, detail?: unknown) {
 async function main() {
   const mongod = await MongoMemoryServer.create()
   process.env.MONGODB_URI = mongod.getUri('carrom_test')
-  process.env.AUTH_SECRET = 'test-secret-value-that-is-long-enough'
-  process.env.ADMIN_EMAIL = 'admin@carrom.test'
-  process.env.ADMIN_PASSWORD = 'seed-password-123'
-  process.env.ADMIN_NAME = 'Tournament Admin'
 
   console.log(`mongod up at ${process.env.MONGODB_URI}\n`)
 
@@ -36,7 +32,6 @@ async function main() {
   const { Team } = await import('../src/lib/models/Team')
   const { Player } = await import('../src/lib/models/Player')
   const { Game } = await import('../src/lib/models/Game')
-  const { User } = await import('../src/lib/models/User')
   const { createGame, recordScores, reopenGame, deleteGame, updateGame } = await import(
     '../src/lib/services/game-score'
   )
@@ -46,7 +41,6 @@ async function main() {
   const { buildReport, playerExportRows, toCsv } = await import('../src/lib/services/reports')
   const { getNotifications } = await import('../src/lib/services/notifications')
   const { ALL_TIME, periodFromKey } = await import('../src/lib/stats-period')
-  const { verifyPassword } = await import('../src/lib/password')
 
   await connectToDatabase()
 
@@ -69,19 +63,6 @@ async function main() {
   check('36 games', gameCount === 36, gameCount)
   check('33 completed', completedCount === 33, completedCount)
   check('3 scheduled', scheduledCount === 3, scheduledCount)
-
-  // ---- Admin account ----------------------------------------------------
-  console.log('\nAdmin account')
-  const admin = await User.findOne({ email: 'admin@carrom.test' })
-  check('admin exists', !!admin)
-  check(
-    'password verifies',
-    !!admin && (await verifyPassword('seed-password-123', admin.password)),
-  )
-  check(
-    'wrong password rejected',
-    !!admin && !(await verifyPassword('not-the-password', admin.password)),
-  )
 
   // ---- Core scoring invariants -----------------------------------------
   console.log('\nScoring invariants')

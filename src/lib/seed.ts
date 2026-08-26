@@ -1,21 +1,19 @@
 /**
- * Seeds the database with the admin account and a believable demo season:
+ * Seeds the database with a believable demo season:
  * 4 teams · 24 members (2 deliberately inactive) · 36 games across 1v1 and 2v2,
  * spread over the last ~10 weeks, with the 3 most recent left unplayed.
  *
- * Every game is created and scored through the same service the admin UI uses,
+ * Every game is created and scored through the same service the UI uses,
  * so the seeded data goes through exactly the same rules — team results and
  * winners are derived, never invented.
  *
  * Invoked by `npm run seed` (scripts/seed.ts) and by the verification harness.
  */
 
-import { User } from './models/User'
 import { Team } from './models/Team'
 import { Player } from './models/Player'
 import { Game } from './models/Game'
 import { Counter } from './models/Counter'
-import { hashPassword } from './password'
 import { createGame, recordScores } from './services/game-score'
 import { GAME_FORMATS, playersPerTeam, type GameFormat } from './enums'
 
@@ -73,23 +71,6 @@ function daysAgo(days: number): string {
   date.setUTCHours(0, 0, 0, 0)
   date.setUTCDate(date.getUTCDate() - days)
   return date.toISOString().slice(0, 10)
-}
-
-async function seedAdmin() {
-  const email = (process.env.ADMIN_EMAIL || 'admin@carrom.test').toLowerCase()
-  const name = process.env.ADMIN_NAME || 'Tournament Admin'
-  const password = process.env.ADMIN_PASSWORD || 'password'
-
-  // Matching on email updates the existing account in place rather than
-  // creating a second one.
-  await User.findOneAndUpdate(
-    { email },
-    { name, email, password: await hashPassword(password), emailVerifiedAt: new Date() },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  )
-
-  // The password itself is deliberately not echoed — it lives in the environment.
-  console.log(`✓ Admin account ready: ${email}`)
 }
 
 async function seedTeams() {
@@ -219,14 +200,12 @@ async function seedGames() {
 
 /** Runs every seeder in order. The caller owns the database connection. */
 export async function seedAll(): Promise<void> {
-  await seedAdmin()
   await seedTeams()
   await seedPlayers()
   await seedGames()
 
   // Index definitions only reach the server when they are explicitly synced.
   await Promise.all([
-    User.syncIndexes(),
     Team.syncIndexes(),
     Player.syncIndexes(),
     Game.syncIndexes(),

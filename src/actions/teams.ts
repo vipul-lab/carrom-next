@@ -8,7 +8,6 @@ import { connectToDatabase } from '@/lib/db'
 import { Team } from '@/lib/models/Team'
 import { Player } from '@/lib/models/Player'
 import { teamGameCount } from '@/lib/services/deletion'
-import { requireSession } from '@/lib/auth'
 import { deleteImage, hasFile, storeImage, UploadError, validateImage } from '@/lib/blob'
 import { RECORD_STATUSES } from '@/lib/enums'
 import type { ActionState } from '@/lib/action-state'
@@ -70,8 +69,6 @@ export async function createTeamAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireSession()
-
   const parsed = readTeamForm(formData)
   if (!parsed.success) return { ok: false, errors: parsed.error.flatten().fieldErrors }
 
@@ -105,8 +102,6 @@ export async function updateTeamAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That team no longer exists.' }
 
@@ -147,8 +142,6 @@ export async function updateTeamAction(
 }
 
 export async function deleteTeamAction(formData: FormData): Promise<void> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/teams?err=That+team+no+longer+exists.')
 

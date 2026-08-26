@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { connectToDatabase } from '@/lib/db'
-import { getSession } from '@/lib/auth'
 import { customPeriod, periodFromKey } from '@/lib/stats-period'
 import { gameExportRows, playerExportRows, teamExportRows, toCsv } from '@/lib/services/reports'
 
@@ -12,11 +11,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ dataset: string }> },
 ) {
-  // Exports are admin-only, exactly like the pages that link to them.
-  if (!(await getSession())) {
-    return NextResponse.json({ error: 'Unauthenticated.' }, { status: 401 })
-  }
-
   const { dataset } = await params
   if (!DATASETS.includes(dataset as Dataset)) {
     return NextResponse.json({ error: 'Unknown dataset.' }, { status: 404 })

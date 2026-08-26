@@ -17,11 +17,10 @@ call out the three places where the platform forced a different mechanism.
 ### Layers
 
 ```
-src/middleware.ts        route guard — every path except /login needs a session
-  └── src/app/**         Server Components: fetch, render, no business logic
-        └── src/actions/**   Server Actions: validation (Zod) + writes
-              └── src/lib/services/**   scoring, rankings, dashboard, reports
-                    └── src/lib/models/**   Mongoose schemas
+src/app/**               Server Components: fetch, render, no business logic
+  └── src/actions/**     Server Actions: validation (Zod) + writes
+        └── src/lib/services/**   scoring, rankings, dashboard, reports
+              └── src/lib/models/**   Mongoose schemas
 ```
 
 | Service | Responsibility |
@@ -79,8 +78,6 @@ Points column.
 ### Data model
 
 ```
-users                (the admin account)
-
 teams  1 ──< players                  players.teamId       set to null on delete
 teams  1 ──< games (teamAId)          delete blocked while games exist
 teams  1 ──< games (teamBId)          delete blocked while games exist
@@ -139,28 +136,17 @@ routes, screens, rules, wording — is a direct port.
 
 | Concern | Laravel | Here | Why |
 |---|---|---|---|
-| **Sessions** | `sessions` database table | Signed JWT in an httpOnly cookie | No per-request DB round-trip; nothing to clean up. `SameSite=Lax`, `Secure` in production. |
 | **Uploads** | `storage/app/public` + `storage:link` | Vercel Blob | The Vercel filesystem is read-only at runtime. |
 | **PDF export** | dompdf, server-rendered | `/reports/print` + the browser's print dialog | A headless PDF renderer is a heavy cold-start cost for one page. "Save as PDF" produces the same A4 document with selectable text. |
 | **Flash messages** | Session flash bag | `?ok=` / `?err=` query parameter, stripped after display | Stateless; survives a redirect without server-side storage. |
 
-**Two caveats worth knowing.**
+**A caveat worth knowing.**
 
-Signing out clears the cookie, but the JWT it held stays cryptographically valid
-until it expires (2 hours, or 30 days with "Remember me"). That is inherent to
-stateless sessions: a token already copied out of the browser keeps working. For
-a single-admin league that is a fair trade for having no session store; if you
-later add more accounts and need sign-out to be immediate, keep a
-`sessionVersion` on the user, put it in the token, and compare the two in
-`getSession()`.
-
-Login throttling (6 attempts per email+IP per
-minute) keeps its counters **in memory**, so on Vercel it is per-instance rather
-than global — an attacker spread across many cold lambdas gets more than six
-tries. It raises the cost of naive credential stuffing without being a complete
-defence. To make it global, back `throttleStatus`/`recordAttempt` in
-`src/lib/auth.ts` with Upstash Redis (`@upstash/ratelimit`); the two functions
-are the only thing that needs to change.
+The app has no authentication: every page and every server action is reachable
+by anyone who knows the URL, and the CSV endpoints are public too. Anything
+deployed to a public host is world-readable and world-writable — put it behind
+Vercel's deployment protection, a reverse proxy, or a private network if that is
+not what you want.
 
 ---
 
@@ -184,30 +170,19 @@ Fill in `.env.local`:
 
 ```dotenv
 MONGODB_URI="mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net/carrom_game?retryWrites=true&w=majority"
-AUTH_SECRET="paste-a-long-random-string"          # openssl rand -base64 32
 NEXT_PUBLIC_APP_NAME="Carrom Arena"
-
-ADMIN_NAME="Tournament Admin"
-ADMIN_EMAIL="you@example.com"
-ADMIN_PASSWORD="a-strong-password"
 
 BLOB_READ_WRITE_TOKEN=""                          # optional, for uploads
 ```
 
-The admin credentials are read from the environment on purpose, so a real
-password never lands in a seeder file under source control. `.env.local` is
-gitignored; `.env.example` ships placeholders only.
+`.env.local` is gitignored; `.env.example` ships placeholders only.
 
 ```bash
 npm run seed     # schema indexes + demo league
 npm run dev      # http://localhost:3000
 ```
 
-Sign in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set.
-
-To change the password later, use **Settings → Change password** in the app, or
-update `ADMIN_PASSWORD` and re-run `npm run seed` — the seeder matches on email,
-so it updates the existing account in place rather than creating a second one.
+The app opens straight onto the dashboard — there is no sign-in step.
 
 ### No MongoDB to hand?
 
@@ -237,8 +212,7 @@ fixtures from scratch while leaving teams and members in place.
    [vercel.com/new](https://vercel.com/new). The framework is detected
    automatically — no build settings to change.
 2. Add the environment variables under **Settings → Environment Variables**:
-   `MONGODB_URI`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_NAME`, and the three `ADMIN_*`
-   values.
+   `MONGODB_URI` and `NEXT_PUBLIC_APP_NAME`.
 3. Under **Storage**, create a **Blob** store and connect it to the project.
    Vercel injects `BLOB_READ_WRITE_TOKEN` for you. Skip this if you do not need
    logo and photo uploads — the app falls back to coloured initials.
@@ -247,9 +221,7 @@ fixtures from scratch while leaving teams and members in place.
 5. Deploy, then seed the production database once from your machine:
 
    ```bash
-   MONGODB_URI="<the Atlas URI>" \
-   ADMIN_EMAIL="you@example.com" ADMIN_PASSWORD="a-strong-password" \
-   npm run seed
+   MONGODB_URI="<the Atlas URI>" npm run seed
    ```
 
 Every page is server-rendered on demand (`force-dynamic`) because the numbers
@@ -290,7 +262,7 @@ numbering.
 | `/games/[id]/score` | Win/loss result screen |
 | `/rankings/players`, `/rankings/teams` | Ladders with all-time / month / week / year windows |
 | `/reports` | Period summary, highlights, standings, CSV + printable PDF |
-| `/settings` | Admin profile, password, system snapshot |
+| `/settings` | System snapshot and scoring rules |
 | `/search` | Global search across members, teams and games |
 | `/api/reports/export/[dataset]` | CSV download for `players`, `teams` or `games` |
 

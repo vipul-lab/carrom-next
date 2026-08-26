@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { connectToDatabase } from '@/lib/db'
-import { currentUser } from '@/lib/auth'
 import { Game } from '@/lib/models/Game'
 import { Player } from '@/lib/models/Player'
 import { Team } from '@/lib/models/Team'
@@ -8,7 +7,6 @@ import { numberFormat } from '@/lib/format'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Icon } from '@/components/ui/Icon'
-import { PasswordForm, ProfileForm } from './SettingsForms'
 
 export const metadata: Metadata = { title: 'Settings' }
 export const dynamic = 'force-dynamic'
@@ -26,8 +24,7 @@ const RULES = [
 export default async function SettingsPage() {
   await connectToDatabase()
 
-  const [user, teams, players, games, appearances] = await Promise.all([
-    currentUser(),
+  const [teams, players, games, appearances] = await Promise.all([
     Team.countDocuments({}),
     Player.countDocuments({}),
     Game.countDocuments({}),
@@ -46,40 +43,33 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Your admin account and a snapshot of the system" />
+      <PageHeader title="Settings" subtitle="A snapshot of the system and how scoring works" />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <ProfileForm name={user?.name ?? ''} email={user?.email ?? ''} />
-          <PasswordForm />
-        </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card title="System">
+          <dl className="divide-y divide-navy-50 text-sm">
+            {rows.map(([label, value]) => (
+              <div
+                key={label}
+                className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+              >
+                <dt className="text-slate-500">{label}</dt>
+                <dd className="font-semibold text-navy-900">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
 
-        <div className="space-y-6">
-          <Card title="System">
-            <dl className="divide-y divide-navy-50 text-sm">
-              {rows.map(([label, value]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
-                >
-                  <dt className="text-slate-500">{label}</dt>
-                  <dd className="font-semibold text-navy-900">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </Card>
-
-          <Card title="Scoring rules" subtitle="How the system calculates results">
-            <ul className="space-y-3 text-sm text-slate-600">
-              {RULES.map((rule) => (
-                <li key={rule} className="flex gap-2">
-                  <Icon name="check-circle" className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
-                  <span>{rule}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
+        <Card title="Scoring rules" subtitle="How the system calculates results">
+          <ul className="space-y-3 text-sm text-slate-600">
+            {RULES.map((rule) => (
+              <li key={rule} className="flex gap-2">
+                <Icon name="check-circle" className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+                <span>{rule}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
     </>
   )

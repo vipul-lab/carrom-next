@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon, type IconName } from '@/components/ui/Icon'
-import { logoutAction } from '@/actions/auth'
 
 interface NavItem {
   label: string
@@ -114,16 +113,6 @@ export function Sidebar({
             <Icon name="plus" className="h-4 w-4" />
             New Game
           </Link>
-
-          <form action={logoutAction} className="mt-2">
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-navy-400 transition hover:bg-navy-800 hover:text-white"
-            >
-              <Icon name="logout" className="h-4 w-4" />
-              Sign out
-            </button>
-          </form>
         </div>
       </aside>
     </>

@@ -8,7 +8,6 @@ import { connectToDatabase } from '@/lib/db'
 import { Player } from '@/lib/models/Player'
 import { Team } from '@/lib/models/Team'
 import { Game, gameLabel } from '@/lib/models/Game'
-import { requireSession } from '@/lib/auth'
 import {
   createGame,
   deleteGame,
@@ -156,8 +155,6 @@ export async function createGameAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireSession()
-
   const result = await validateGameForm(formData)
   if (result.errors) return { ok: false, errors: result.errors }
 
@@ -174,8 +171,6 @@ export async function updateGameAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That game no longer exists.' }
 
@@ -207,8 +202,6 @@ export async function recordScoreAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That game no longer exists.' }
 
@@ -317,8 +310,6 @@ export async function recordScoreAction(
 
 /** Put a completed game back into scoring so a mistake can be corrected. */
 export async function reopenGameAction(formData: FormData): Promise<void> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/games?err=That+game+no+longer+exists.')
 
@@ -334,8 +325,6 @@ export async function reopenGameAction(formData: FormData): Promise<void> {
 }
 
 export async function deleteGameAction(formData: FormData): Promise<void> {
-  await requireSession()
-
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/games?err=That+game+no+longer+exists.')
 
