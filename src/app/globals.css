@@ -1,0 +1,111 @@
+@import 'tailwindcss';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+    /* The tournament palette: deep navy chrome, blue primary, gold for podium
+       places, green for wins, red for losses and purple as the accent. */
+    --color-navy-50: #f5f7fa;
+    --color-navy-100: #e9eef5;
+    --color-navy-200: #cbd7e6;
+    --color-navy-300: #9db2cd;
+    --color-navy-400: #6987ad;
+    --color-navy-500: #476892;
+    --color-navy-600: #365178;
+    --color-navy-700: #2c4162;
+    --color-navy-800: #1e2f4a;
+    --color-navy-900: #16233a;
+    --color-navy-950: #0d1729;
+
+    --color-gold-300: #fcd34d;
+    --color-gold-400: #fbbf24;
+    --color-gold-500: #f59e0b;
+    --color-gold-600: #d97706;
+
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 4px 16px -4px rgb(15 23 42 / 0.08);
+    --shadow-raised: 0 8px 30px -12px rgb(15 23 42 / 0.25);
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
+
+@layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-navy-50 font-sans text-slate-700 antialiased;
+    }
+
+    /* Keep the focus ring visible for keyboard users on every control. */
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-blue-500;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Small utilities used across the admin
+--------------------------------------------------------------------------- */
+
+@utility scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-navy-700) transparent;
+}
+
+@utility podium-gold {
+    background-image: linear-gradient(90deg, rgb(254 243 199 / 0.9) 0%, rgb(255 255 255 / 0) 60%);
+    box-shadow: inset 3px 0 0 0 var(--color-gold-400);
+}
+
+@utility podium-silver {
+    background-image: linear-gradient(90deg, rgb(241 245 249 / 0.95) 0%, rgb(255 255 255 / 0) 60%);
+    box-shadow: inset 3px 0 0 0 #94a3b8;
+}
+
+@utility podium-bronze {
+    background-image: linear-gradient(90deg, rgb(254 237 220 / 0.9) 0%, rgb(255 255 255 / 0) 60%);
+    box-shadow: inset 3px 0 0 0 #c2825a;
+}
+
+/* Responsive tables: below `md` each row is re-flowed into a stacked card and
+   the `data-label` attribute supplies the column heading. */
+@media (max-width: 767px) {
+    .table-stack thead {
+        display: none;
+    }
+
+    .table-stack tbody tr {
+        @apply mb-3 block rounded-xl border border-navy-100 bg-white p-3 shadow-card;
+    }
+
+    .table-stack tbody td {
+        @apply flex items-center justify-between gap-4 border-0 px-0 py-1.5 text-right;
+    }
+
+    .table-stack tbody td::before {
+        content: attr(data-label);
+        @apply text-xs font-semibold tracking-wide text-slate-400 uppercase;
+    }
+
+    .table-stack tbody td[data-label='']::before {
+        content: none;
+    }
+}
+
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    body {
+        @apply bg-white;
+    }
+
+    .print-full {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}
