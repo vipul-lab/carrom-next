@@ -6,12 +6,14 @@ import { toDateInput } from '@/lib/format'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { GameForm } from '../../GameFormFields'
 import { loadGameFormData } from '../../form-data'
+import { requireEditorPage } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Edit Game' }
 export const dynamic = 'force-dynamic'
 
 export default async function EditGamePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  await requireEditorPage(`/games/${id}/edit`)
 
   await connectToDatabase()
 
@@ -33,9 +35,11 @@ export default async function EditGamePage({ params }: { params: Promise<{ id: s
       <GameForm
         teams={formData.teams}
         rosters={formData.rosters}
+        tournaments={formData.tournaments}
         game={{ id: game.id, label: game.label, completed: game.status === 'completed' }}
         defaults={{
           format: game.format,
+          tournamentId: game.tournament?.id ?? '',
           gameDate: toDateInput(game.gameDate),
           status: game.status,
           teamAId: game.teamA?.id ?? '',

@@ -3,6 +3,7 @@ import { Types, type PipelineStage } from 'mongoose'
 import { Game, gameLabel } from '../models/Game'
 import { formatLabel, type GameFormat, type GameStatus } from '../enums'
 import { periodMatch, type StatsPeriod } from '../stats-period'
+import { ALL_GAMES, scopeFromParams, scopeMatch, type GameScope } from '../game-scope'
 import { searchRegex, type TeamRef } from './stats'
 import type { Paginated } from './stats'
 
@@ -19,10 +20,17 @@ export interface LineupView {
   player: { id: string; name: string; photo: string | null } | null
 }
 
+export interface TournamentRef {
+  id: string
+  name: string
+}
+
 export interface GameView {
   id: string
   number: number
   label: string
+  /** null for a friendly. */
+  tournament: TournamentRef | null
   format: GameFormat
   formatLabel: string
   gameDate: string
@@ -56,10 +64,15 @@ function toGame(row: any): GameView {
     (row.lineupPlayers ?? []).map((p: any) => [String(p._id), p]),
   )
 
+  const tournamentDoc = row.tournamentDoc?.[0]
+
   return {
     id: String(row._id),
     number: row.number,
     label: gameLabel(row.number),
+    tournament: tournamentDoc
+      ? { id: String(tournamentDoc._id), name: tournamentDoc.name }
+      : null,
     format: row.format,
     formatLabel: formatLabel(row.format),
     gameDate: new Date(row.gameDate).toISOString(),
@@ -123,6 +136,14 @@ function hydrationStages(withPlayers: boolean): PipelineStage[] {
     { $lookup: { from: 'teams', localField: 'teamAId', foreignField: '_id', as: 'teamADoc' } },
     { $lookup: { from: 'teams', localField: 'teamBId', foreignField: '_id', as: 'teamBDoc' } },
     { $lookup: { from: 'teams', localField: 'winnerTeamId', foreignField: '_id', as: 'winnerDoc' } },
+    {
+      $lookup: {
+        from: 'tournaments',
+        localField: 'tournamentId',
+        foreignField: '_id',
+        as: 'tournamentDoc',
+      },
+    },
   ]
 
   if (withPlayers) {
@@ -148,6 +169,9 @@ export interface GameFilters {
   status?: string | null
   from?: string | null
   to?: string | null
+  /** 'all' | 'tournament' | 'friendly', or a tournament id in `tournamentId`. */
+  scope?: string | null
+  tournamentId?: string | null
 }
 
 async function resolveSearchMatch(term: string): Promise<Record<string, unknown>> {
@@ -189,6 +213,9 @@ async function buildGameMatch(filters: GameFilters): Promise<Record<string, unkn
 
   if (filters.format) and.push({ format: filters.format })
   if (filters.status) and.push({ status: filters.status })
+
+  const scope = scopeMatch(scopeFromParams(filters.scope, filters.tournamentId))
+  if (Object.keys(scope).length) and.push(scope)
 
   const dateMatch = periodMatch({ from: filters.from ?? null, to: filters.to ?? null, key: 'custom' })
   if (Object.keys(dateMatch).length) and.push(dateMatch)
@@ -266,6 +293,7 @@ export async function findGame(id: string): Promise<GameView | null> {
 export async function playerAppearances(
   playerId: string,
   period: StatsPeriod,
+  scope: GameScope = ALL_GAMES,
 ): Promise<GameView[]> {
   if (!Types.ObjectId.isValid(playerId)) return []
 
@@ -275,6 +303,7 @@ export async function playerAppearances(
         status: 'completed',
         'lineup.playerId': new Types.ObjectId(playerId),
         ...periodMatch(period),
+        ...scopeMatch(scope),
       },
     },
     { $sort: { gameDate: -1, number: -1 } },

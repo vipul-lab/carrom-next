@@ -13,17 +13,20 @@ import {
   type LineupDefaults,
   type RosterPlayer,
   type TeamOption,
+  type TournamentOption,
 } from '@/components/games/LineupPicker'
 
 /** Shared by games/create and games/[id]/edit. */
 export function GameForm({
   teams,
   rosters,
+  tournaments,
   defaults,
   game,
 }: {
   teams: TeamOption[]
   rosters: Record<string, RosterPlayer[]>
+  tournaments: TournamentOption[]
   defaults: LineupDefaults
   /** Present when editing an existing fixture. */
   game?: { id: string; label: string; completed: boolean }
@@ -51,6 +54,7 @@ export function GameForm({
         <LineupPicker
           teams={teams}
           rosters={rosters}
+          tournaments={tournaments}
           defaults={defaults}
           showStatus={editing}
           state={state}

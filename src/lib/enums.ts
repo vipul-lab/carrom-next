@@ -39,6 +39,31 @@ export function gameStatusVariant(status: GameStatus): 'warning' | 'success' | '
   return status === 'scheduled' ? 'warning' : status === 'completed' ? 'success' : 'danger'
 }
 
+export const TOURNAMENT_STATUSES = ['upcoming', 'active', 'completed', 'cancelled'] as const
+export type TournamentStatus = (typeof TOURNAMENT_STATUSES)[number]
+
+export const TOURNAMENT_STATUS_OPTIONS: Record<TournamentStatus, string> = {
+  upcoming: 'Upcoming',
+  active: 'Active',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
+export function tournamentStatusVariant(
+  status: TournamentStatus,
+): 'info' | 'warning' | 'success' | 'danger' {
+  switch (status) {
+    case 'upcoming':
+      return 'info'
+    case 'active':
+      return 'warning'
+    case 'completed':
+      return 'success'
+    default:
+      return 'danger'
+  }
+}
+
 export const RECORD_STATUSES = ['active', 'inactive'] as const
 export type RecordStatus = (typeof RECORD_STATUSES)[number]
 

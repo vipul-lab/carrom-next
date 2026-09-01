@@ -3,6 +3,7 @@ import { Types, type PipelineStage } from 'mongoose'
 import { Player } from '../models/Player'
 import { Team } from '../models/Team'
 import { periodMatch, type StatsPeriod } from '../stats-period'
+import { ALL_GAMES, scopeMatch, type GameScope } from '../game-scope'
 import type { RecordStatus } from '../enums'
 
 /**
@@ -111,7 +112,11 @@ export interface PlayerFilters {
  * The player pipeline up to (and including) the sort, without paging. Callers
  * append `$skip`/`$limit`, or a `$facet` when they also need a total count.
  */
-function playerPipeline(period: StatsPeriod, filters: PlayerFilters = {}): PipelineStage[] {
+function playerPipeline(
+  period: StatsPeriod,
+  filters: PlayerFilters = {},
+  scope: GameScope = ALL_GAMES,
+): PipelineStage[] {
   const match: Record<string, unknown> = {}
 
   if (filters.search) {
@@ -124,6 +129,7 @@ function playerPipeline(period: StatsPeriod, filters: PlayerFilters = {}): Pipel
   if (filters.status) match.status = filters.status
 
   const dateMatch = periodMatch(period)
+  const gameScope = scopeMatch(scope)
 
   return [
     { $match: match },
@@ -142,7 +148,14 @@ function playerPipeline(period: StatsPeriod, filters: PlayerFilters = {}): Pipel
         from: 'games',
         let: { pid: '$_id' },
         pipeline: [
-          { $match: { status: 'completed', ...dateMatch, $expr: { $in: ['$$pid', '$lineup.playerId'] } } },
+          {
+            $match: {
+              status: 'completed',
+              ...dateMatch,
+              ...gameScope,
+              $expr: { $in: ['$$pid', '$lineup.playerId'] },
+            },
+          },
           {
             $project: {
               _id: 0,
@@ -252,11 +265,12 @@ export async function paginatePlayers(
   filters: PlayerFilters,
   page: number,
   perPage: number,
+  scope: GameScope = ALL_GAMES,
 ): Promise<Paginated<PlayerWithStats>> {
   const safePage = Math.max(1, page)
 
   const [result] = await Player.aggregate([
-    ...playerPipeline(period, filters),
+    ...playerPipeline(period, filters, scope),
     {
       $facet: {
         rows: [{ $skip: (safePage - 1) * perPage }, { $limit: perPage }],
@@ -281,35 +295,48 @@ export async function listPlayers(
   period: StatsPeriod,
   filters: PlayerFilters = {},
   limit?: number,
+  scope: GameScope = ALL_GAMES,
 ): Promise<PlayerWithStats[]> {
-  const pipeline = playerPipeline(period, filters)
+  const pipeline = playerPipeline(period, filters, scope)
   if (limit) pipeline.push({ $limit: limit })
 
   const rows = await Player.aggregate(pipeline)
   return rows.map(toPlayer)
 }
 
-export async function topPlayers(limit: number, period: StatsPeriod): Promise<PlayerWithStats[]> {
-  return listPlayers(period, {}, limit)
+export async function topPlayers(
+  limit: number,
+  period: StatsPeriod,
+  scope: GameScope = ALL_GAMES,
+): Promise<PlayerWithStats[]> {
+  return listPlayers(period, {}, limit, scope)
 }
 
 export async function findPlayerWithStats(
   id: string,
   period: StatsPeriod,
+  scope: GameScope = ALL_GAMES,
 ): Promise<PlayerWithStats | null> {
   if (!Types.ObjectId.isValid(id)) return null
 
   const rows = await Player.aggregate([
     { $match: { _id: new Types.ObjectId(id) } },
-    ...playerPipeline(period).slice(1),
+    ...playerPipeline(period, {}, scope).slice(1),
   ])
 
   return rows[0] ? toPlayer(rows[0]) : null
 }
 
 /** 1-based position on the all-player ladder, or null if the player is unranked. */
-export async function playerRank(id: string, period: StatsPeriod): Promise<number | null> {
-  const rows = await Player.aggregate([...playerPipeline(period), { $project: { _id: 1 } }])
+export async function playerRank(
+  id: string,
+  period: StatsPeriod,
+  scope: GameScope = ALL_GAMES,
+): Promise<number | null> {
+  const rows = await Player.aggregate([
+    ...playerPipeline(period, {}, scope),
+    { $project: { _id: 1 } },
+  ])
   const index = rows.findIndex((r: { _id: Types.ObjectId }) => String(r._id) === id)
 
   return index === -1 ? null : index + 1
@@ -325,7 +352,11 @@ export interface TeamFilters {
   sort?: SortKey
 }
 
-function teamPipeline(period: StatsPeriod, filters: TeamFilters = {}): PipelineStage[] {
+function teamPipeline(
+  period: StatsPeriod,
+  filters: TeamFilters = {},
+  scope: GameScope = ALL_GAMES,
+): PipelineStage[] {
   const match: Record<string, unknown> = {}
 
   if (filters.search) {
@@ -335,6 +366,7 @@ function teamPipeline(period: StatsPeriod, filters: TeamFilters = {}): PipelineS
   if (filters.status) match.status = filters.status
 
   const dateMatch = periodMatch(period)
+  const gameScope = scopeMatch(scope)
 
   return [
     { $match: match },
@@ -348,6 +380,7 @@ function teamPipeline(period: StatsPeriod, filters: TeamFilters = {}): PipelineS
             $match: {
               status: 'completed',
               ...dateMatch,
+              ...gameScope,
               $expr: { $or: [{ $eq: ['$teamAId', '$$tid'] }, { $eq: ['$teamBId', '$$tid'] }] },
             },
           },
@@ -445,11 +478,12 @@ export async function paginateTeams(
   filters: TeamFilters,
   page: number,
   perPage: number,
+  scope: GameScope = ALL_GAMES,
 ): Promise<Paginated<TeamWithStats>> {
   const safePage = Math.max(1, page)
 
   const [result] = await Team.aggregate([
-    ...teamPipeline(period, filters),
+    ...teamPipeline(period, filters, scope),
     {
       $facet: {
         rows: [{ $skip: (safePage - 1) * perPage }, { $limit: perPage }],
@@ -474,35 +508,45 @@ export async function listTeams(
   period: StatsPeriod,
   filters: TeamFilters = {},
   limit?: number,
+  scope: GameScope = ALL_GAMES,
 ): Promise<TeamWithStats[]> {
-  const pipeline = teamPipeline(period, filters)
+  const pipeline = teamPipeline(period, filters, scope)
   if (limit) pipeline.push({ $limit: limit })
 
   const rows = await Team.aggregate(pipeline)
   return rows.map(toTeam)
 }
 
-export async function topTeams(limit: number, period: StatsPeriod): Promise<TeamWithStats[]> {
-  return listTeams(period, {}, limit)
+export async function topTeams(
+  limit: number,
+  period: StatsPeriod,
+  scope: GameScope = ALL_GAMES,
+): Promise<TeamWithStats[]> {
+  return listTeams(period, {}, limit, scope)
 }
 
 export async function findTeamWithStats(
   id: string,
   period: StatsPeriod,
+  scope: GameScope = ALL_GAMES,
 ): Promise<TeamWithStats | null> {
   if (!Types.ObjectId.isValid(id)) return null
 
   const rows = await Team.aggregate([
     { $match: { _id: new Types.ObjectId(id) } },
-    ...teamPipeline(period).slice(1),
+    ...teamPipeline(period, {}, scope).slice(1),
   ])
 
   return rows[0] ? toTeam(rows[0]) : null
 }
 
 /** 1-based position on the team ladder, or null if the team is unranked. */
-export async function teamRank(id: string, period: StatsPeriod): Promise<number | null> {
-  const rows = await Team.aggregate([...teamPipeline(period), { $project: { _id: 1 } }])
+export async function teamRank(
+  id: string,
+  period: StatsPeriod,
+  scope: GameScope = ALL_GAMES,
+): Promise<number | null> {
+  const rows = await Team.aggregate([...teamPipeline(period, {}, scope), { $project: { _id: 1 } }])
   const index = rows.findIndex((r: { _id: Types.ObjectId }) => String(r._id) === id)
 
   return index === -1 ? null : index + 1

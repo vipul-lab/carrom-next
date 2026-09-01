@@ -17,6 +17,7 @@ import { TeamChip } from '@/components/ui/TeamChip'
 import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { Input } from '@/components/form/Input'
 import { AutoSubmitSelect } from '@/components/form/AutoSubmit'
+import { isEditor } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Team Members' }
 export const dynamic = 'force-dynamic'
@@ -50,6 +51,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
   const teamOptions = teams.map((t) => [String(t._id), t.name] as [string, string])
   const hasFilters = Boolean(params.search || params.teamId || params.status)
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
@@ -60,9 +62,11 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
             <LinkButton href="/rankings/players" variant="secondary" icon="trophy">
               Player Rankings
             </LinkButton>
-            <LinkButton href="/players/create" icon="plus">
-              Add Member
-            </LinkButton>
+            {canEdit && (
+              <LinkButton href="/players/create" icon="plus">
+                Add Member
+              </LinkButton>
+            )}
           </>
         }
       />
@@ -145,9 +149,11 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
                     Clear filters
                   </LinkButton>
                 ) : (
-                  <LinkButton href="/players/create" icon="plus">
-                    Add Member
-                  </LinkButton>
+                  canEdit && (
+                    <LinkButton href="/players/create" icon="plus">
+                      Add Member
+                    </LinkButton>
+                  )
                 )
               }
             />

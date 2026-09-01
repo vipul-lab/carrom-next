@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { signOutAction } from '@/actions/auth'
 import type { Notification } from '@/lib/services/notifications'
+import type { SessionUser } from '@/lib/authz'
 
 const TONES: Record<Notification['tone'], string> = {
   warning: 'bg-amber-50 text-amber-600',
@@ -41,14 +43,17 @@ function useDismissable() {
 
 export function Header({
   notifications,
+  user,
   onOpenSidebar,
 }: {
   notifications: Notification[]
+  user: SessionUser | null
   onOpenSidebar: () => void
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const bell = useDismissable()
+  const account = useDismissable()
 
   return (
     <header className="no-print sticky top-0 z-30 border-b border-navy-100 bg-white/90 backdrop-blur">
@@ -158,6 +163,70 @@ export function Header({
             <Icon name="cog" className="h-4 w-4 text-navy-400" />
             <span className="hidden sm:block">Settings</span>
           </Link>
+
+          {/* Account. Signing in is what grants edit rights, so a viewer sees
+              an invitation to sign in rather than a disabled-looking menu. */}
+          {user ? (
+            <div className="relative" ref={account.ref}>
+              <button
+                type="button"
+                onClick={() => account.setOpen(!account.open)}
+                aria-expanded={account.open}
+                aria-haspopup="true"
+                className="flex items-center gap-2 rounded-lg py-1 pr-2 pl-1 transition hover:bg-navy-100"
+              >
+                <span className="sr-only">Account menu</span>
+                {user.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.image}
+                    alt=""
+                    className="h-7 w-7 rounded-full ring-1 ring-navy-100"
+                  />
+                ) : (
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                    {(user.name ?? user.email).charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="hidden max-w-32 truncate text-sm font-medium text-navy-700 sm:block">
+                  {user.name ?? user.email}
+                </span>
+              </button>
+
+              {account.open && (
+                <div className="absolute right-0 z-40 mt-2 w-64 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-raised">
+                  <div className="border-b border-navy-100 px-4 py-3">
+                    <p className="truncate text-sm font-semibold text-navy-900">
+                      {user.name ?? 'Editor'}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                    <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                      <Icon name="check" className="h-3 w-3" />
+                      Edit access
+                    </p>
+                  </div>
+
+                  <form action={signOutAction}>
+                    <button
+                      type="submit"
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-navy-700 transition hover:bg-navy-50"
+                    >
+                      <Icon name="close" className="h-4 w-4 text-navy-400" />
+                      Sign out
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/signin"
+              className="flex items-center gap-2 rounded-lg bg-navy-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-navy-800"
+            >
+              <Icon name="user" className="h-4 w-4" />
+              <span className="hidden sm:block">Sign in</span>
+            </Link>
+          )}
         </div>
       </div>
     </header>

@@ -18,6 +18,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { TeamChip } from '@/components/ui/TeamChip'
 import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { AutoSubmitSelect } from '@/components/form/AutoSubmit'
+import { isEditor } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +62,7 @@ export default async function PlayerShowPage({
     ['Joined', formatTimestampDate(player.createdAt)],
   ]
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
@@ -81,9 +83,11 @@ export default async function PlayerShowPage({
                 className="w-40"
               />
             </form>
-            <LinkButton href={`/players/${player.id}/edit`} icon="pencil">
-              Edit Member
-            </LinkButton>
+            {canEdit && (
+              <LinkButton href={`/players/${player.id}/edit`} icon="pencil">
+                Edit Member
+              </LinkButton>
+            )}
           </>
         }
       />

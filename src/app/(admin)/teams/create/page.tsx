@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { TeamForm } from '../TeamForm'
+import { requireEditorPage } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Add Team' }
 
-export default function CreateTeamPage() {
+export default async function CreateTeamPage() {
+  await requireEditorPage('/teams/create')
+
   return (
     <>
       <PageHeader

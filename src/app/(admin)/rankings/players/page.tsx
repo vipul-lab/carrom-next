@@ -18,12 +18,16 @@ import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { Input } from '@/components/form/Input'
 import { AutoSubmitSelect } from '@/components/form/AutoSubmit'
 import { PeriodTabs } from '../PeriodTabs'
+import { ScopeTabs } from '../ScopeTabs'
+import { scopeFromParams, scopeLabel } from '@/lib/game-scope'
+import { isEditor } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Player Rankings' }
 export const dynamic = 'force-dynamic'
 
 interface Params {
   period?: string
+  scope?: string
   search?: string
   teamId?: string
   status?: string
@@ -39,6 +43,7 @@ export default async function PlayerRankingsPage({
 }) {
   const params = await searchParams
   const period = periodFromKey(params.period ?? 'all')
+  const scope = scopeFromParams(params.scope)
 
   const filters = {
     search: params.search ?? null,
@@ -50,17 +55,18 @@ export default async function PlayerRankingsPage({
   await connectToDatabase()
 
   const [players, teams] = await Promise.all([
-    paginatePlayers(period, filters, Number(params.page ?? 1), 25),
+    paginatePlayers(period, filters, Number(params.page ?? 1), 25, scope),
     Team.find({}).sort({ name: 1 }).select('name').lean(),
   ])
 
   const teamOptions = teams.map((t) => [String(t._id), t.name] as [string, string])
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
         title="Player Rankings"
-        subtitle={`Overall player ladder — ${periodLabel(period).toLowerCase()}`}
+        subtitle={`Overall player ladder — ${periodLabel(period).toLowerCase()}, ${scopeLabel(scope).toLowerCase()}`}
         actions={
           <>
             <LinkButton
@@ -77,7 +83,10 @@ export default async function PlayerRankingsPage({
         }
       />
 
-      <PeriodTabs basePath="/rankings/players" current={period.key} params={params} />
+      <div className="flex flex-wrap items-center gap-3">
+        <PeriodTabs basePath="/rankings/players" current={period.key} params={params} />
+        <ScopeTabs basePath="/rankings/players" current={scope.key} params={params} />
+      </div>
 
       {/* Filters */}
       <form
@@ -150,9 +159,11 @@ export default async function PlayerRankingsPage({
               title="No players ranked yet"
               description="Rankings are built from completed games. Record a game's result to populate the ladder."
               action={
-                <LinkButton href="/games/create" icon="plus">
-                  Create a game
-                </LinkButton>
+                canEdit && (
+                  <LinkButton href="/games/create" icon="plus">
+                    Create a game
+                  </LinkButton>
+                )
               }
             />
           </div>

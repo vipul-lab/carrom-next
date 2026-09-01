@@ -11,6 +11,7 @@ import { teamGameCount } from '@/lib/services/deletion'
 import { deleteImage, hasFile, storeImage, UploadError, validateImage } from '@/lib/blob'
 import { RECORD_STATUSES } from '@/lib/enums'
 import type { ActionState } from '@/lib/action-state'
+import { FORBIDDEN, isEditor, requireEditorOrRedirect } from '@/lib/authz'
 
 /**
  * Team create/update/delete. The Zod schema carries the same rules the Laravel
@@ -69,6 +70,8 @@ export async function createTeamAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!(await isEditor())) return FORBIDDEN
+
   const parsed = readTeamForm(formData)
   if (!parsed.success) return { ok: false, errors: parsed.error.flatten().fieldErrors }
 
@@ -102,6 +105,8 @@ export async function updateTeamAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!(await isEditor())) return FORBIDDEN
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That team no longer exists.' }
 
@@ -142,6 +147,8 @@ export async function updateTeamAction(
 }
 
 export async function deleteTeamAction(formData: FormData): Promise<void> {
+  await requireEditorOrRedirect('/teams')
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/teams?err=That+team+no+longer+exists.')
 

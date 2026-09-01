@@ -45,6 +45,9 @@ export function PlayerForm({
 
       <form action={formAction} encType="multipart/form-data">
         {editing && <input type="hidden" name="id" value={player!.id} />}
+        {!editing && defaultTeamId && (
+          <input type="hidden" name="teamId" value={defaultTeamId} />
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
@@ -67,21 +70,26 @@ export function PlayerForm({
                   />
                 </Field>
 
-                <Field
-                  label="Team"
-                  name="teamId"
-                  required
-                  hint="Members can only be picked for games with their own team."
-                  error={fieldError(state, 'teamId')}
-                >
-                  <Select
+                {/* A new member is added to the roster first and given a team
+                    later, so the picker only appears when editing. Arriving from
+                    a team's own "Add Member" button still assigns that team,
+                    carried silently in the hidden field below. */}
+                {editing && (
+                  <Field
+                    label="Team"
                     name="teamId"
-                    options={teamOptions}
-                    defaultValue={player?.team?.id ?? defaultTeamId ?? ''}
-                    placeholder="Select a team"
-                    invalid={!!fieldError(state, 'teamId')}
-                  />
-                </Field>
+                    hint="Members can only be picked for games with their own team."
+                    error={fieldError(state, 'teamId')}
+                  >
+                    <Select
+                      name="teamId"
+                      options={teamOptions}
+                      defaultValue={player?.team?.id ?? ''}
+                      placeholder="No team yet"
+                      invalid={!!fieldError(state, 'teamId')}
+                    />
+                  </Field>
+                )}
 
                 <Field
                   label="Status"

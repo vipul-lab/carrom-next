@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button, LinkButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Icon } from '@/components/ui/Icon'
+import { isEditor } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ export default async function GameShowPage({ params }: { params: Promise<{ id: s
     ['Last updated', timeAgo(game.updatedAt)],
   ]
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
@@ -61,22 +63,24 @@ export default async function GameShowPage({ params }: { params: Promise<{ id: s
         subtitle={`${game.teamA?.name} vs ${game.teamB?.name}`}
         breadcrumbs={[{ label: 'Games', href: '/games' }, { label: game.label }]}
         actions={
-          <>
-            {completed && (
-              <form action={reopenGameAction}>
-                <input type="hidden" name="id" value={game.id} />
-                <Button type="submit" variant="secondary" icon="refresh">
-                  Reopen
-                </Button>
-              </form>
-            )}
-            <LinkButton href={`/games/${game.id}/score`} variant="accent" icon="board">
-              {completed ? 'Edit Result' : 'Record Result'}
-            </LinkButton>
-            <LinkButton href={`/games/${game.id}/edit`} icon="pencil">
-              Edit Game
-            </LinkButton>
-          </>
+          canEdit && (
+            <>
+              {completed && (
+                <form action={reopenGameAction}>
+                  <input type="hidden" name="id" value={game.id} />
+                  <Button type="submit" variant="secondary" icon="refresh">
+                    Reopen
+                  </Button>
+                </form>
+              )}
+              <LinkButton href={`/games/${game.id}/score`} variant="accent" icon="board">
+                {completed ? 'Edit Result' : 'Record Result'}
+              </LinkButton>
+              <LinkButton href={`/games/${game.id}/edit`} icon="pencil">
+                Edit Game
+              </LinkButton>
+            </>
+          )
         }
       />
 
@@ -86,6 +90,15 @@ export default async function GameShowPage({ params }: { params: Promise<{ id: s
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="info">{game.formatLabel}</Badge>
             <Badge variant={gameStatusVariant(game.status)}>{capitalise(game.status)}</Badge>
+            {game.tournament ? (
+              <Link href={`/tournaments/${game.tournament.id}`}>
+                <Badge variant="gold" icon="star">
+                  {game.tournament.name}
+                </Badge>
+              </Link>
+            ) : (
+              <Badge variant="muted">Friendly</Badge>
+            )}
           </div>
 
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-navy-300">

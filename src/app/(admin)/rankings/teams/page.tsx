@@ -16,12 +16,15 @@ import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { Input } from '@/components/form/Input'
 import { AutoSubmitSelect } from '@/components/form/AutoSubmit'
 import { PeriodTabs } from '../PeriodTabs'
+import { ScopeTabs } from '../ScopeTabs'
+import { scopeFromParams, scopeLabel } from '@/lib/game-scope'
 
 export const metadata: Metadata = { title: 'Team Rankings' }
 export const dynamic = 'force-dynamic'
 
 interface Params {
   period?: string
+  scope?: string
   search?: string
   status?: string
   sort?: string
@@ -36,6 +39,7 @@ export default async function TeamRankingsPage({
 }) {
   const params = await searchParams
   const period = periodFromKey(params.period ?? 'all')
+  const scope = scopeFromParams(params.scope)
 
   const filters = {
     search: params.search ?? null,
@@ -44,13 +48,13 @@ export default async function TeamRankingsPage({
   }
 
   await connectToDatabase()
-  const teams = await paginateTeams(period, filters, Number(params.page ?? 1), 25)
+  const teams = await paginateTeams(period, filters, Number(params.page ?? 1), 25, scope)
 
   return (
     <>
       <PageHeader
         title="Team Rankings"
-        subtitle={`League table — ${periodLabel(period).toLowerCase()}`}
+        subtitle={`League table — ${periodLabel(period).toLowerCase()}, ${scopeLabel(scope).toLowerCase()}`}
         actions={
           <>
             <LinkButton
@@ -67,7 +71,10 @@ export default async function TeamRankingsPage({
         }
       />
 
-      <PeriodTabs basePath="/rankings/teams" current={period.key} params={params} />
+      <div className="flex flex-wrap items-center gap-3">
+        <PeriodTabs basePath="/rankings/teams" current={period.key} params={params} />
+        <ScopeTabs basePath="/rankings/teams" current={scope.key} params={params} />
+      </div>
 
       <form
         method="GET"

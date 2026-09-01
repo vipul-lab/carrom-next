@@ -23,8 +23,15 @@ export interface TeamOption {
   name: string
 }
 
+export interface TournamentOption {
+  id: string
+  name: string
+}
+
 export interface LineupDefaults {
   format: GameFormat
+  /** '' means a friendly. */
+  tournamentId: string
   gameDate: string
   status?: GameStatus
   teamAId: string
@@ -47,6 +54,7 @@ export function LineupPicker({
   teams,
   rosters,
   defaults,
+  tournaments = [],
   showStatus = false,
   state,
 }: {
@@ -54,6 +62,8 @@ export function LineupPicker({
   /** Active members grouped by team id. */
   rosters: Record<string, RosterPlayer[]>
   defaults: LineupDefaults
+  /** Tournaments this fixture may be assigned to; empty means friendlies only. */
+  tournaments?: TournamentOption[]
   showStatus?: boolean
   state?: ActionState
 }) {
@@ -106,7 +116,10 @@ export function LineupPicker({
 
   return (
     <div className="space-y-6">
-      <Card title="Game information" subtitle="The format and date of this fixture">
+      <Card
+        title="Game information"
+        subtitle="Whether this is a friendly or part of a tournament, and when it is played"
+      >
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <Field
             label="Game format"
@@ -121,6 +134,23 @@ export function LineupPicker({
               options={FORMAT_OPTIONS}
               value={format}
               onChange={(event) => changeFormat(event.target.value as GameFormat)}
+            />
+          </Field>
+
+          <Field
+            label="Competition"
+            name="tournamentId"
+            hint="Leave as a friendly to keep it out of the tournament rankings."
+            error={fieldError(state, 'tournamentId')}
+          >
+            <Select
+              name="tournamentId"
+              id="tournamentId"
+              options={[
+                ['', 'Friendly — no tournament'],
+                ...tournaments.map((t) => [t.id, t.name] as [string, string]),
+              ]}
+              defaultValue={defaults.tournamentId}
             />
           </Field>
 

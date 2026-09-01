@@ -18,6 +18,7 @@ import {
 } from '@/lib/services/game-score'
 import { GAME_FORMATS, GAME_STATUSES, formatLabel, playersPerTeam, type GameFormat } from '@/lib/enums'
 import type { ActionState } from '@/lib/action-state'
+import { FORBIDDEN, isEditor, requireEditorOrRedirect } from '@/lib/authz'
 
 /**
  * Game creation and editing, including every line-up business rule: the two
@@ -31,6 +32,8 @@ import type { ActionState } from '@/lib/action-state'
 
 const GameSchema = z.object({
   format: z.enum(GAME_FORMATS),
+  // Blank means a friendly — the absence of a tournament, not a validation error.
+  tournamentId: z.string().trim().nullable().optional(),
   teamAId: z.string().min(1, 'Select an active team for Team A.'),
   teamBId: z.string().min(1, 'Select an active team for Team B.'),
   gameDate: z.string().min(1, 'The game date field is required.'),
@@ -49,6 +52,7 @@ async function validateGameForm(
 ): Promise<{ input: GameInput; errors?: never } | { input?: never; errors: Record<string, string[]> }> {
   const parsed = GameSchema.safeParse({
     format: formData.get('format'),
+    tournamentId: (formData.get('tournamentId') as string)?.trim() || null,
     teamAId: formData.get('teamAId'),
     teamBId: formData.get('teamBId'),
     gameDate: formData.get('gameDate'),
@@ -57,7 +61,7 @@ async function validateGameForm(
 
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors }
 
-  const { format, teamAId, teamBId, gameDate, status } = parsed.data
+  const { format, tournamentId, teamAId, teamBId, gameDate, status } = parsed.data
   const perTeam = playersPerTeam(format as GameFormat)
   const errors: Record<string, string[]> = {}
 
@@ -86,6 +90,14 @@ async function validateGameForm(
   }
 
   await connectToDatabase()
+
+  // A named tournament must actually exist; anything else is a friendly.
+  if (tournamentId) {
+    const { Tournament } = await import('@/lib/models/Tournament')
+    if (!Types.ObjectId.isValid(tournamentId) || !(await Tournament.exists({ _id: tournamentId }))) {
+      errors.tournamentId = ['Select a tournament that exists, or leave it as a friendly.']
+    }
+  }
 
   // Both teams must exist and be active.
   const teams = await Team.find({
@@ -141,6 +153,7 @@ async function validateGameForm(
   return {
     input: {
       format: format as GameFormat,
+      tournamentId: tournamentId ?? null,
       teamAId,
       teamBId,
       gameDate,
@@ -155,6 +168,8 @@ export async function createGameAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!(await isEditor())) return FORBIDDEN
+
   const result = await validateGameForm(formData)
   if (result.errors) return { ok: false, errors: result.errors }
 
@@ -171,6 +186,8 @@ export async function updateGameAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!(await isEditor())) return FORBIDDEN
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That game no longer exists.' }
 
@@ -202,6 +219,8 @@ export async function recordScoreAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!(await isEditor())) return FORBIDDEN
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That game no longer exists.' }
 
@@ -310,6 +329,8 @@ export async function recordScoreAction(
 
 /** Put a completed game back into scoring so a mistake can be corrected. */
 export async function reopenGameAction(formData: FormData): Promise<void> {
+  await requireEditorOrRedirect('/games')
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/games?err=That+game+no+longer+exists.')
 
@@ -325,6 +346,8 @@ export async function reopenGameAction(formData: FormData): Promise<void> {
 }
 
 export async function deleteGameAction(formData: FormData): Promise<void> {
+  await requireEditorOrRedirect('/games')
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/games?err=That+game+no+longer+exists.')
 

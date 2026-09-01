@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { connectToDatabase } from '@/lib/db'
-import { Team } from '@/lib/models/Team'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PlayerForm } from '../PlayerForm'
+import { requireEditorPage } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Add Member' }
 export const dynamic = 'force-dynamic'
@@ -13,21 +13,19 @@ export default async function CreatePlayerPage({
   searchParams: Promise<{ teamId?: string }>
 }) {
   const { teamId } = await searchParams
+  await requireEditorPage('/players/create')
 
   await connectToDatabase()
-  const teams = await Team.find({ status: 'active' }).sort({ name: 1 }).select('name').lean()
 
   return (
     <>
       <PageHeader
         title="Add Team Member"
-        subtitle="Add a player to the roster so they can be picked for games"
+        subtitle="Add a player to the roster — you can put them in a team afterwards"
         breadcrumbs={[{ label: 'Team Members', href: '/players' }, { label: 'Add Member' }]}
       />
-      <PlayerForm
-        teams={teams.map((t) => ({ id: String(t._id), name: t.name }))}
-        defaultTeamId={teamId}
-      />
+      {/* The team picker is edit-only, so the list is not needed here. */}
+      <PlayerForm teams={[]} defaultTeamId={teamId} />
     </>
   )
 }

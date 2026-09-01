@@ -13,6 +13,7 @@
 import { Team } from './models/Team'
 import { Player } from './models/Player'
 import { Game } from './models/Game'
+import { Tournament } from './models/Tournament'
 import { Counter } from './models/Counter'
 import { createGame, recordScores } from './services/game-score'
 import { GAME_FORMATS, playersPerTeam, type GameFormat } from './enums'
@@ -114,6 +115,34 @@ async function seedPlayers() {
   console.log(`✓ ${total} members (${INACTIVE.length} inactive)`)
 }
 
+/**
+ * Two tournaments plus a run of friendlies, so the scope filters have something
+ * to separate. Games created outside a tournament stay friendlies.
+ */
+async function seedTournaments() {
+  await Tournament.deleteMany({})
+
+  const created = await Tournament.create([
+    {
+      name: 'Spring Championship',
+      description: 'The opening competition of the season.',
+      startDate: new Date(`${daysAgo(80)}T00:00:00.000Z`),
+      endDate: new Date(`${daysAgo(40)}T00:00:00.000Z`),
+      status: 'completed',
+    },
+    {
+      name: 'Club Masters Cup',
+      description: 'Ongoing knockout running alongside the league.',
+      startDate: new Date(`${daysAgo(35)}T00:00:00.000Z`),
+      endDate: null,
+      status: 'active',
+    },
+  ])
+
+  console.log(`✓ ${created.length} tournaments`)
+  return created
+}
+
 async function seedGames() {
   // Start from a clean slate so re-seeding does not stack up fixtures.
   await Game.deleteMany({})
@@ -122,6 +151,7 @@ async function seedGames() {
   // The biggest format sets the bar for who can be scheduled at all.
   const largestSquad = Math.max(...GAME_FORMATS.map(playersPerTeam))
 
+  const tournaments = await Tournament.find({}).sort({ startDate: 1 }).lean()
   const teams = await Team.find({ status: 'active' }).sort({ _id: 1 }).lean()
 
   const squads = await Promise.all(
@@ -158,6 +188,7 @@ async function seedGames() {
 
   let created = 0
   let completed = 0
+  let friendlies = 0
 
   for (const [index, fixture] of fixtures.entries()) {
     // Roughly one singles board for every two doubles boards.
@@ -169,8 +200,15 @@ async function seedGames() {
 
     if (lineupA.length < perTeam || lineupB.length < perTeam) continue
 
+    // Two in every five fixtures are friendlies; the rest alternate between the
+    // two tournaments, so every scope filter has data behind it.
+    const isFriendly = index % 5 >= 3
+    const tournament = isFriendly ? null : tournaments[index % 2]
+    if (isFriendly) friendlies++
+
     const game = await createGame({
       format,
+      tournamentId: tournament ? String(tournament._id) : null,
       teamAId: String(fixture.a.team._id),
       teamBId: String(fixture.b.team._id),
       gameDate: daysAgo(70 - index * 2),
@@ -195,13 +233,16 @@ async function seedGames() {
     completed++
   }
 
-  console.log(`✓ ${created} games (${completed} completed)`)
+  console.log(
+    `✓ ${created} games (${completed} completed, ${friendlies} friendlies, ${created - friendlies} in tournaments)`,
+  )
 }
 
 /** Runs every seeder in order. The caller owns the database connection. */
 export async function seedAll(): Promise<void> {
   await seedTeams()
   await seedPlayers()
+  await seedTournaments()
   await seedGames()
 
   // Index definitions only reach the server when they are explicitly synced.
@@ -209,5 +250,6 @@ export async function seedAll(): Promise<void> {
     Team.syncIndexes(),
     Player.syncIndexes(),
     Game.syncIndexes(),
+    Tournament.syncIndexes(),
   ])
 }

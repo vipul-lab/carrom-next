@@ -18,6 +18,8 @@ export interface LineupEntry {
 export interface GameDoc {
   _id: Types.ObjectId
   number: number
+  /** null means this was a friendly, played outside any tournament. */
+  tournamentId: Types.ObjectId | null
   format: GameFormat
   teamAId: Types.ObjectId
   teamBId: Types.ObjectId
@@ -43,6 +45,7 @@ const LineupSchema = new Schema<LineupEntry>(
 const GameSchema = new Schema<GameDoc>(
   {
     number: { type: Number, required: true, unique: true },
+    tournamentId: { type: Schema.Types.ObjectId, ref: 'Tournament', default: null },
     format: { type: String, enum: GAME_FORMATS, default: '2v2' },
     teamAId: { type: Schema.Types.ObjectId, ref: 'Team', required: true },
     teamBId: { type: Schema.Types.ObjectId, ref: 'Team', required: true },
@@ -58,6 +61,7 @@ const GameSchema = new Schema<GameDoc>(
 )
 
 GameSchema.index({ gameDate: -1 })
+GameSchema.index({ tournamentId: 1, gameDate: -1 })
 GameSchema.index({ status: 1, gameDate: -1 })
 GameSchema.index({ format: 1 })
 GameSchema.index({ teamAId: 1 })

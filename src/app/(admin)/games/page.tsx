@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { connectToDatabase } from '@/lib/db'
+import { listTournaments } from '@/lib/services/tournaments'
 import { Player } from '@/lib/models/Player'
 import { Team } from '@/lib/models/Team'
 import { paginateGames } from '@/lib/services/games'
@@ -16,6 +17,7 @@ import { TeamChip } from '@/components/ui/TeamChip'
 import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { Input } from '@/components/form/Input'
 import { Select } from '@/components/form/Select'
+import { isEditor } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Games' }
 export const dynamic = 'force-dynamic'
@@ -29,6 +31,7 @@ interface Params {
   status?: string
   from?: string
   to?: string
+  tournament?: string
   page?: string
   [key: string]: string | undefined
 }
@@ -45,20 +48,32 @@ export default async function GamesPage({ searchParams }: { searchParams: Promis
     status: params.status ?? null,
     from: params.from ?? null,
     to: params.to ?? null,
+    // One control drives both axes: the sentinel 'friendly' means "no
+    // tournament at all", anything else is a specific competition.
+    scope: params.tournament === 'friendly' ? 'friendly' : null,
+    tournamentId:
+      params.tournament && params.tournament !== 'friendly' ? params.tournament : null,
   }
 
   await connectToDatabase()
 
-  const [games, teams, players] = await Promise.all([
+  const [games, teams, players, tournaments] = await Promise.all([
     paginateGames(filters, Number(params.page ?? 1), 12),
     Team.find({}).sort({ name: 1 }).select('name').lean(),
     Player.find({}).sort({ name: 1 }).select('name').lean(),
+    listTournaments(),
   ])
 
   const teamOptions = teams.map((t) => [String(t._id), t.name] as [string, string])
   const playerOptions = players.map((p) => [String(p._id), p.name] as [string, string])
+  // 'friendly' sits alongside the named tournaments so one control covers both.
+  const competitionOptions: [string, string][] = [
+    ['friendly', 'Friendlies only'],
+    ...tournaments.map((t) => [t.id, t.name] as [string, string]),
+  ]
   const hasFilters = Object.values(filters).some(Boolean)
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
@@ -69,9 +84,11 @@ export default async function GamesPage({ searchParams }: { searchParams: Promis
             <LinkButton href="/api/reports/export/games" variant="secondary" icon="download">
               Export CSV
             </LinkButton>
-            <LinkButton href="/games/create" icon="plus">
-              Create New Game
-            </LinkButton>
+            {canEdit && (
+              <LinkButton href="/games/create" icon="plus">
+                Create New Game
+              </LinkButton>
+            )}
           </>
         }
       />
@@ -115,6 +132,19 @@ export default async function GamesPage({ searchParams }: { searchParams: Promis
               options={playerOptions}
               defaultValue={params.playerId ?? ''}
               placeholder="Any player"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="tournament" className="mb-1 block text-xs font-medium text-slate-500">
+              Competition
+            </label>
+            <Select
+              name="tournament"
+              id="tournament"
+              options={competitionOptions}
+              defaultValue={params.tournament ?? ''}
+              placeholder="Any competition"
             />
           </div>
 
@@ -202,9 +232,11 @@ export default async function GamesPage({ searchParams }: { searchParams: Promis
                     Clear filters
                   </LinkButton>
                 ) : (
-                  <LinkButton href="/games/create" icon="plus">
-                    Create New Game
-                  </LinkButton>
+                  canEdit && (
+                    <LinkButton href="/games/create" icon="plus">
+                      Create New Game
+                    </LinkButton>
+                  )
                 )
               }
             />
@@ -240,6 +272,16 @@ export default async function GamesPage({ searchParams }: { searchParams: Promis
                       <span className="block text-xs text-slate-400">
                         {game.playersCount} players
                       </span>
+                      {game.tournament ? (
+                        <Link
+                          href={`/tournaments/${game.tournament.id}`}
+                          className="mt-0.5 block truncate text-xs font-medium text-navy-500 hover:text-blue-600"
+                        >
+                          {game.tournament.name}
+                        </Link>
+                      ) : (
+                        <span className="mt-0.5 block text-xs text-slate-400 italic">Friendly</span>
+                      )}
                     </td>
 
                     <td data-label="Format" className="px-3 py-3">

@@ -11,11 +11,13 @@ import { playerAppearanceCount } from '@/lib/services/deletion'
 import { deleteImage, hasFile, storeImage, UploadError, validateImage } from '@/lib/blob'
 import { RECORD_STATUSES } from '@/lib/enums'
 import type { ActionState } from '@/lib/action-state'
+import { FORBIDDEN, isEditor, requireEditorOrRedirect } from '@/lib/authz'
 
 /** Mirrors the Laravel `PlayerRequest` rules, messages included. */
 const PlayerSchema = z.object({
   name: z.string().trim().min(1, 'The full name field is required.').max(120),
-  teamId: z.string().min(1, 'Every member must belong to a team.'),
+  // Optional: a member joins the roster first and is given a team later.
+  teamId: z.string().trim().nullable().optional(),
   mobile: z
     .string()
     .trim()
@@ -38,7 +40,7 @@ const PlayerSchema = z.object({
 function readPlayerForm(formData: FormData) {
   return PlayerSchema.safeParse({
     name: formData.get('name'),
-    teamId: formData.get('teamId'),
+    teamId: (formData.get('teamId') as string)?.trim() || null,
     mobile: (formData.get('mobile') as string)?.trim() || null,
     email: (formData.get('email') as string)?.trim().toLowerCase() || null,
     status: formData.get('status'),
@@ -46,13 +48,14 @@ function readPlayerForm(formData: FormData) {
 }
 
 async function validateReferences(
-  teamId: string,
+  teamId: string | null | undefined,
   email: string | null | undefined,
   ignoreId?: string,
 ): Promise<Record<string, string[]>> {
   const errors: Record<string, string[]> = {}
 
-  if (!Types.ObjectId.isValid(teamId) || !(await Team.exists({ _id: teamId }))) {
+  // No team is a valid state — but a named team must actually exist.
+  if (teamId && (!Types.ObjectId.isValid(teamId) || !(await Team.exists({ _id: teamId })))) {
     errors.teamId = ['Select a team that exists.']
   }
 
@@ -70,6 +73,8 @@ export async function createPlayerAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!(await isEditor())) return FORBIDDEN
+
   const parsed = readPlayerForm(formData)
   if (!parsed.success) return { ok: false, errors: parsed.error.flatten().fieldErrors }
 
@@ -95,7 +100,7 @@ export async function createPlayerAction(
 
   const player = await Player.create({
     name: parsed.data.name,
-    teamId: new Types.ObjectId(parsed.data.teamId),
+    teamId: parsed.data.teamId ? new Types.ObjectId(parsed.data.teamId) : null,
     mobile: parsed.data.mobile ?? null,
     email: parsed.data.email ?? null,
     status: parsed.data.status,
@@ -112,6 +117,8 @@ export async function updatePlayerAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!(await isEditor())) return FORBIDDEN
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) return { ok: false, message: 'That member no longer exists.' }
 
@@ -144,7 +151,7 @@ export async function updatePlayerAction(
   }
 
   player.name = parsed.data.name
-  player.teamId = new Types.ObjectId(parsed.data.teamId)
+  player.teamId = parsed.data.teamId ? new Types.ObjectId(parsed.data.teamId) : null
   player.mobile = parsed.data.mobile ?? null
   player.email = parsed.data.email ?? null
   player.status = parsed.data.status
@@ -158,6 +165,8 @@ export async function updatePlayerAction(
 }
 
 export async function deletePlayerAction(formData: FormData): Promise<void> {
+  await requireEditorOrRedirect('/players')
+
   const id = String(formData.get('id') ?? '')
   if (!Types.ObjectId.isValid(id)) redirect('/players?err=That+member+no+longer+exists.')
 

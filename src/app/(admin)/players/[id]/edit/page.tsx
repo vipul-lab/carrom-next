@@ -6,12 +6,14 @@ import { findPlayerWithStats } from '@/lib/services/stats'
 import { ALL_TIME } from '@/lib/stats-period'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PlayerForm } from '../../PlayerForm'
+import { requireEditorPage } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Edit Member' }
 export const dynamic = 'force-dynamic'
 
 export default async function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  await requireEditorPage(`/players/${id}/edit`)
 
   await connectToDatabase()
 

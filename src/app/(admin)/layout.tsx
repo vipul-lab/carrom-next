@@ -1,6 +1,7 @@
 import { connectToDatabase } from '@/lib/db'
 import { getNotifications } from '@/lib/services/notifications'
 import { AppShell } from '@/components/layout/AppShell'
+import { sessionUser } from '@/lib/authz'
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Carrom Arena'
 
@@ -15,10 +16,10 @@ export const dynamic = 'force-dynamic'
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await connectToDatabase()
   // The header's "needs attention" list is derived on every admin page.
-  const notifications = await getNotifications()
+  const [notifications, user] = await Promise.all([getNotifications(), sessionUser()])
 
   return (
-    <AppShell notifications={notifications} appName={APP_NAME}>
+    <AppShell notifications={notifications} appName={APP_NAME} user={user}>
       {children}
     </AppShell>
   )

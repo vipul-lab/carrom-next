@@ -9,6 +9,7 @@ import { Alert } from '@/components/ui/Alert'
 import { LinkButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ScoreForm } from './ScoreForm'
+import { requireEditorPage } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,7 @@ export async function generateMetadata({
 
 export default async function ScoreGamePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  await requireEditorPage(`/games/${id}/score`)
 
   await connectToDatabase()
   const game = await findGame(id)

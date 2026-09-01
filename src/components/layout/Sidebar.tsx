@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
   { label: 'Team Members', icon: 'users', href: '/players', match: '/players' },
   { label: 'Teams', icon: 'shield', href: '/teams', match: '/teams' },
   { label: 'Games', icon: 'board', href: '/games', match: '/games' },
+  { label: 'Tournaments', icon: 'star', href: '/tournaments', match: '/tournaments' },
   { label: 'Player Rankings', icon: 'trophy', href: '/rankings/players', match: '/rankings/players' },
   { label: 'Team Rankings', icon: 'chart', href: '/rankings/teams', match: '/rankings/teams' },
   { label: 'Reports', icon: 'document', href: '/reports', match: '/reports' },
@@ -27,10 +28,13 @@ export function Sidebar({
   open,
   onClose,
   appName,
+  canEdit,
 }: {
   open: boolean
   onClose: () => void
   appName: string
+  /** Viewers get the nav but not the shortcut to create things. */
+  canEdit: boolean
 }) {
   const pathname = usePathname()
 
@@ -104,16 +108,18 @@ export function Sidebar({
           })}
         </nav>
 
-        <div className="border-t border-navy-800/80 p-3">
-          <Link
-            href="/games/create"
-            onClick={onClose}
-            className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
-          >
-            <Icon name="plus" className="h-4 w-4" />
-            New Game
-          </Link>
-        </div>
+        {canEdit && (
+          <div className="border-t border-navy-800/80 p-3">
+            <Link
+              href="/games/create"
+              onClick={onClose}
+              className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
+            >
+              <Icon name="plus" className="h-4 w-4" />
+              New Game
+            </Link>
+          </div>
+        )}
       </aside>
     </>
   )

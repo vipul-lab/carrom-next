@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Pagination } from '@/components/ui/Pagination'
 import { Input } from '@/components/form/Input'
 import { AutoSubmitSelect } from '@/components/form/AutoSubmit'
+import { isEditor } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Teams' }
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
 
   const hasFilters = Boolean(params.search || params.status)
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
@@ -51,9 +53,11 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
             <LinkButton href="/rankings/teams" variant="secondary" icon="trophy">
               Team Rankings
             </LinkButton>
-            <LinkButton href="/teams/create" icon="plus">
-              Add Team
-            </LinkButton>
+            {canEdit && (
+              <LinkButton href="/teams/create" icon="plus">
+                Add Team
+              </LinkButton>
+            )}
           </>
         }
       />
@@ -122,9 +126,11 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
                   Clear filters
                 </LinkButton>
               ) : (
-                <LinkButton href="/teams/create" icon="plus">
-                  Add Team
-                </LinkButton>
+                canEdit && (
+                  <LinkButton href="/teams/create" icon="plus">
+                    Add Team
+                  </LinkButton>
+                )
               )
             }
           />

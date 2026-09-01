@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Icon } from '@/components/ui/Icon'
 import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { AutoSubmitSelect } from '@/components/form/AutoSubmit'
+import { isEditor } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +68,7 @@ export default async function TeamShowPage({
     ['Created', formatTimestampDate(team.createdAt)],
   ]
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
@@ -87,16 +89,20 @@ export default async function TeamShowPage({
                 className="w-40"
               />
             </form>
-            <LinkButton
-              href={`/players/create?teamId=${team.id}`}
-              variant="secondary"
-              icon="plus"
-            >
-              Add Member
-            </LinkButton>
-            <LinkButton href={`/teams/${team.id}/edit`} icon="pencil">
-              Edit Team
-            </LinkButton>
+            {canEdit && (
+              <>
+                <LinkButton
+                  href={`/players/create?teamId=${team.id}`}
+                  variant="secondary"
+                  icon="plus"
+                >
+                  Add Member
+                </LinkButton>
+                <LinkButton href={`/teams/${team.id}/edit`} icon="pencil">
+                  Edit Team
+                </LinkButton>
+              </>
+            )}
           </>
         }
       />
@@ -169,14 +175,16 @@ export default async function TeamShowPage({
           subtitle={`${players.length} on the roster`}
           padding="p-0"
           action={
-            <LinkButton
-              href={`/players/create?teamId=${team.id}`}
-              variant="secondary"
-              size="sm"
-              icon="plus"
-            >
-              Add
-            </LinkButton>
+            canEdit && (
+              <LinkButton
+                href={`/players/create?teamId=${team.id}`}
+                variant="secondary"
+                size="sm"
+                icon="plus"
+              >
+                Add
+              </LinkButton>
+            )
           }
         >
           {players.length === 0 ? (
@@ -186,9 +194,11 @@ export default async function TeamShowPage({
                 title="No members yet"
                 description="A team needs at least one active member before it can be picked for a game."
                 action={
-                  <LinkButton href={`/players/create?teamId=${team.id}`} icon="plus">
-                    Add the first member
-                  </LinkButton>
+                  canEdit && (
+                    <LinkButton href={`/players/create?teamId=${team.id}`} icon="plus">
+                      Add the first member
+                    </LinkButton>
+                  )
                 }
               />
             </div>

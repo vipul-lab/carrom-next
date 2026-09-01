@@ -17,6 +17,7 @@ import { TeamChip } from '@/components/ui/TeamChip'
 import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { AutoSubmitSelect } from '@/components/form/AutoSubmit'
 import { DashboardCharts } from '@/components/charts/DashboardCharts'
+import { isEditor } from '@/lib/authz'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,7 @@ export default async function DashboardPage({
   await connectToDatabase()
   const { stats, topPlayers, topTeams, recentGames, charts } = await getDashboardData(period)
 
+  const canEdit = await isEditor()
   return (
     <>
       <PageHeader
@@ -51,9 +53,11 @@ export default async function DashboardPage({
                 className="w-40"
               />
             </form>
-            <LinkButton href="/games/create" icon="plus">
-              New Game
-            </LinkButton>
+            {canEdit && (
+              <LinkButton href="/games/create" icon="plus">
+                New Game
+              </LinkButton>
+            )}
           </>
         }
       />
@@ -137,9 +141,11 @@ export default async function DashboardPage({
                 title="No player scores yet"
                 description="Create a game and record its result — the leaderboard fills in automatically."
                 action={
-                  <LinkButton href="/games/create" icon="plus">
-                    Create the first game
-                  </LinkButton>
+                  canEdit && (
+                    <LinkButton href="/games/create" icon="plus">
+                      Create the first game
+                    </LinkButton>
+                  )
                 }
               />
             </div>
@@ -315,9 +321,11 @@ export default async function DashboardPage({
               title="No games yet"
               description="Schedule a 1 vs 1 or 2 vs 2 game to get the tournament started."
               action={
-                <LinkButton href="/games/create" icon="plus">
-                  Create New Game
-                </LinkButton>
+                canEdit && (
+                  <LinkButton href="/games/create" icon="plus">
+                    Create New Game
+                  </LinkButton>
+                )
               }
             />
           </div>

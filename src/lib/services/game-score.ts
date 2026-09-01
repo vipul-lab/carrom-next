@@ -16,12 +16,19 @@ import type { GameFormat, GameStatus } from '../enums'
 
 export interface GameInput {
   format: GameFormat
+  /** null (or absent) makes this a friendly. */
+  tournamentId?: string | null
   teamAId: string
   teamBId: string
   gameDate: string
   status?: GameStatus | null
   teamAPlayers: string[]
   teamBPlayers: string[]
+}
+
+/** A blank or invalid selection means "no tournament", i.e. a friendly. */
+function toTournamentId(value: string | null | undefined): Types.ObjectId | null {
+  return value && Types.ObjectId.isValid(value) ? new Types.ObjectId(value) : null
 }
 
 /** Dates are day-precision; store them at UTC midnight so they never shift. */
@@ -108,6 +115,7 @@ export async function createGame(input: GameInput): Promise<GameDoc> {
 
   const game = new Game({
     number: await nextSequence('games'),
+    tournamentId: toTournamentId(input.tournamentId),
     format: input.format,
     teamAId,
     teamBId,
@@ -131,6 +139,7 @@ export async function updateGame(id: string, input: GameInput): Promise<GameDoc 
   const teamBId = new Types.ObjectId(input.teamBId)
 
   game.format = input.format
+  game.tournamentId = toTournamentId(input.tournamentId)
   game.teamAId = teamAId
   game.teamBId = teamBId
   game.gameDate = toUtcDate(input.gameDate)
