@@ -7,3 +7,6 @@ out
 next-env.d.ts
 .vercel
 .dev-mongo-uri
+
+# Local database dumps — contain member names and contact details.
+backups/

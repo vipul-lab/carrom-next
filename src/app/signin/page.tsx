@@ -44,9 +44,10 @@ export default async function SignInPage({
             >
               No editor accounts are configured on this server yet. Set{' '}
               <code className="font-mono text-amber-200">EDITORS</code> and{' '}
-              <code className="font-mono text-amber-200">AUTH_SECRET</code> in{' '}
-              <code className="font-mono text-amber-200">.env.local</code>, then restart the
-              server.
+              <code className="font-mono text-amber-200">AUTH_SECRET</code> in this
+              environment — <code className="font-mono text-amber-200">.env.local</code> when
+              running locally, or the hosting provider&apos;s environment variables when
+              deployed — then restart or redeploy.
             </p>
           )}
 
