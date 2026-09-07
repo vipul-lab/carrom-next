@@ -37,10 +37,9 @@ export default async function ScoreGamePage({ params }: { params: Promise<{ id: 
   const teamBLineup = lineupFor(game, game.teamB?.id)
   const completed = game.status === 'completed'
 
-  // Only a scored game has marks worth pre-filling.
-  const initialMarks: Record<string, number> = completed
-    ? Object.fromEntries(game.lineup.map((entry) => [entry.playerId, entry.points]))
-    : {}
+  // Only a scored game has a scoreline worth pre-filling.
+  const teamAScore = completed ? game.teamAScore : null
+  const teamBScore = completed ? game.teamBScore : null
 
   return (
     <>
@@ -91,7 +90,9 @@ export default async function ScoreGamePage({ params }: { params: Promise<{ id: 
             teamB={game.teamB}
             teamALineup={teamALineup}
             teamBLineup={teamBLineup}
-            initialMarks={initialMarks}
+            teamAScore={teamAScore}
+            teamBScore={teamBScore}
+            knockout={game.stage !== 'group'}
           />
         </>
       )}

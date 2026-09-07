@@ -15,7 +15,7 @@ import { Player } from './models/Player'
 import { Game } from './models/Game'
 import { Tournament } from './models/Tournament'
 import { Counter } from './models/Counter'
-import { createGame, recordScores } from './services/game-score'
+import { createGame, recordTeamScores } from './services/game-score'
 import { GAME_FORMATS, playersPerTeam, type GameFormat } from './enums'
 
 const TEAMS = [
@@ -222,14 +222,17 @@ async function seedGames() {
     // upcoming games alongside finished ones.
     if (index >= fixtures.length - 3) continue
 
-    // Alternate the winning side so neither team runs away with the league.
+    // Alternate the winning side so neither team runs away with the league,
+    // and vary the margin so the points columns are not all identical.
     const teamAWins = (index * 7 + (index % 5)) % 2 === 0
+    const winning = 20 + (index % 6)
+    const losing = 8 + (index % 9)
 
-    const points: Record<string, number> = {}
-    lineupA.forEach((p) => (points[String(p._id)] = teamAWins ? 1 : 0))
-    lineupB.forEach((p) => (points[String(p._id)] = teamAWins ? 0 : 1))
-
-    await recordScores(String(game._id), points)
+    await recordTeamScores(
+      String(game._id),
+      teamAWins ? winning : losing,
+      teamAWins ? losing : winning,
+    )
     completed++
   }
 

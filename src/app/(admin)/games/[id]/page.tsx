@@ -141,9 +141,9 @@ export default async function GameShowPage({ params }: { params: Promise<{ id: s
                   </div>
 
                   <p
-                    className={`text-4xl font-extrabold tracking-tight ${isWinner ? 'text-gold-400' : 'text-navy-500'}`}
+                    className={`text-5xl font-extrabold tracking-tight ${isWinner ? 'text-gold-400' : 'text-navy-300'}`}
                   >
-                    {completed ? (isWinner ? 'WON' : 'LOST') : '–'}
+                    {completed ? (key === 'A' ? game.teamAScore : game.teamBScore) : '–'}
                   </p>
 
                   {isWinner ? (
@@ -151,7 +151,10 @@ export default async function GameShowPage({ params }: { params: Promise<{ id: s
                       Winner
                     </Badge>
                   ) : completed ? (
-                    <Badge variant="danger">Lost</Badge>
+                    // A level game has no loser either.
+                    <Badge variant={game.winnerTeamId ? 'danger' : 'muted'}>
+                      {game.winnerTeamId ? 'Lost' : 'Draw'}
+                    </Badge>
                   ) : null}
                 </div>
 

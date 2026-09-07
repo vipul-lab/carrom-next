@@ -71,22 +71,11 @@ function buildLineup(
 }
 
 /**
- * A side counts as the winner when any of its players is marked as one. Using
- * max() rather than a strict all-or-nothing check keeps the result stable if a
- * player is swapped into an already-scored game.
- */
-function sideWon(lineup: LineupEntry[], teamId: Types.ObjectId | null): boolean {
-  if (!teamId) return false
-  return lineup.some((entry) => entry.teamId.equals(teamId) && entry.points > 0)
-}
-
-/**
- * Recompute the team results and the winner from the line-up. Safe to call at
- * any time — this is the single source of truth for a result.
+ * Derive the winner from the two team scores. The scores themselves are entered
+ * by the scorer — this is the single place that turns them into a result, so a
+ * game can never disagree with its own scoreline.
  *
- * A side scores 1 if its players are marked as winners and 0 otherwise, so a
- * 1v1 win counts exactly the same as a 2v2 win. Validation guarantees the two
- * sides never agree, so a completed game always has a winner.
+ * Equal scores are a draw: no winner, and neither side takes a loss.
  */
 export function recalculate(game: GameDoc): GameDoc {
   // A knockout tie exists before its teams are known; until both sides are
@@ -98,19 +87,17 @@ export function recalculate(game: GameDoc): GameDoc {
     return game
   }
 
-  const teamAWon = sideWon(game.lineup, game.teamAId)
-  const teamBWon = sideWon(game.lineup, game.teamBId)
-
-  game.teamAScore = teamAWon ? 1 : 0
-  game.teamBScore = teamBWon ? 1 : 0
-
-  if (game.status === 'completed' && teamAWon !== teamBWon) {
-    game.winnerTeamId = teamAWon ? game.teamAId : game.teamBId
-  } else {
-    // A game that is not finished — or has no decisive result — has no winner
-    // to report.
+  if (game.status !== 'completed') {
     game.winnerTeamId = null
+    return game
   }
+
+  game.winnerTeamId =
+    game.teamAScore > game.teamBScore
+      ? game.teamAId
+      : game.teamBScore > game.teamAScore
+        ? game.teamBId
+        : null
 
   return game
 }
@@ -164,23 +151,24 @@ export async function updateGame(id: string, input: GameInput): Promise<GameDoc 
 }
 
 /**
- * Record the result and close the game out.
+ * Record the scoreline and close the game out.
  *
- * @param points playerId => 1 (won) or 0 (lost)
+ * Each player's appearance carries their own side's score, so a career points
+ * total is the sum of their rows and needs nothing stored on the player.
  */
-export async function recordScores(
+export async function recordTeamScores(
   id: string,
-  points: Record<string, number>,
+  teamAScore: number,
+  teamBScore: number,
 ): Promise<GameDoc | null> {
   const game = await Game.findById(id)
   if (!game) return null
 
+  game.teamAScore = teamAScore
+  game.teamBScore = teamBScore
+
   for (const entry of game.lineup) {
-    const key = String(entry.playerId)
-    if (key in points) {
-      // Anything truthy counts as a win; the value stored is always 1 or 0.
-      entry.points = points[key] > 0 ? 1 : 0
-    }
+    entry.points = entry.teamId.equals(game.teamAId!) ? teamAScore : teamBScore
   }
 
   game.status = 'completed'

@@ -367,12 +367,24 @@ export default async function DashboardPage({
                     <td data-label="Result" className="px-3 py-3 text-center whitespace-nowrap">
                       {game.status === 'completed' ? (
                         <span className="text-xs font-bold tracking-wide">
-                          <span className={game.teamAScore > 0 ? 'text-green-600' : 'text-slate-400'}>
-                            {game.teamAScore > 0 ? 'W' : 'L'}
+                          <span
+                            className={
+                              game.teamAScore > game.teamBScore
+                                ? 'text-green-600'
+                                : 'text-slate-500'
+                            }
+                          >
+                            {game.teamAScore}
                           </span>
                           <span className="text-navy-300"> – </span>
-                          <span className={game.teamBScore > 0 ? 'text-green-600' : 'text-slate-400'}>
-                            {game.teamBScore > 0 ? 'W' : 'L'}
+                          <span
+                            className={
+                              game.teamBScore > game.teamAScore
+                                ? 'text-green-600'
+                                : 'text-slate-500'
+                            }
+                          >
+                            {game.teamBScore}
                           </span>
                         </span>
                       ) : (

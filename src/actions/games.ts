@@ -11,7 +11,7 @@ import { Game, gameLabel } from '@/lib/models/Game'
 import {
   createGame,
   deleteGame,
-  recordScores,
+  recordTeamScores,
   reopenGame,
   updateGame,
   type GameInput,
@@ -239,108 +239,62 @@ export async function recordScoreAction(
   const game = await Game.findById(id)
   if (!game) return { ok: false, message: 'That game no longer exists.' }
 
-  if (game.lineup.length === 0) {
+  if (!game.teamAId || !game.teamBId) {
+    return {
+      ok: false,
+      errors: { teamAScore: ['This tie has no opponents yet — it is waiting on an earlier round.'] },
+    }
+  }
+
+  // One score per side. Anything that is not a whole number of points at least
+  // zero is rejected rather than silently coerced.
+  const read = (field: string): number | null => {
+    const raw = String(formData.get(field) ?? '').trim()
+    if (raw === '') return null
+
+    const value = Number(raw)
+    if (!Number.isInteger(value) || value < 0 || value > 9999) return null
+
+    return value
+  }
+
+  const teamAScore = read('teamAScore')
+  const teamBScore = read('teamBScore')
+  const errors: Record<string, string[]> = {}
+
+  if (teamAScore === null) errors.teamAScore = ['Enter a whole number of points, 0 or more.']
+  if (teamBScore === null) errors.teamBScore = ['Enter a whole number of points, 0 or more.']
+  if (Object.keys(errors).length) return { ok: false, errors }
+
+  // A knockout tie has to produce someone to send to the next round, so a draw
+  // cannot be recorded there. Group games may legitimately end level.
+  if (teamAScore === teamBScore && game.stage !== 'group') {
     return {
       ok: false,
       errors: {
-        points: ['This game has no line-up yet. Edit the game and pick its players first.'],
-      },
-    }
-  }
-
-  const points: Record<string, number> = {}
-
-  for (const [key, value] of formData.entries()) {
-    const match = /^points\[(.+)\]$/.exec(key)
-    if (!match) continue
-
-    const mark = Number(value)
-    if (mark !== 0 && mark !== 1) {
-      return { ok: false, errors: { points: ['A result must be a win or a loss.'] } }
-    }
-
-    points[match[1]] = mark
-  }
-
-  const expected = game.lineup.map((entry) => String(entry.playerId))
-  const submitted = Object.keys(points)
-
-  // Every selected player must have a mark, and no stranger may be scored.
-  const missing = expected.filter((id) => !submitted.includes(id))
-  const unknown = submitted.filter((id) => !expected.includes(id))
-
-  if (missing.length) {
-    const names = (await Player.find({ _id: { $in: missing } }).select('name').lean())
-      .map((p) => p.name)
-      .join(', ')
-
-    return { ok: false, errors: { points: [`Mark every player in the line-up (${names} missing).`] } }
-  }
-
-  if (unknown.length) {
-    return {
-      ok: false,
-      errors: { points: ['A result was submitted for a player who is not in this game.'] },
-    }
-  }
-
-  // Each side must be internally consistent — partners win or lose together.
-  const sides: Record<'A' | 'B', boolean> = { A: false, B: false }
-
-  for (const [label, teamId] of [
-    ['A', game.teamAId],
-    ['B', game.teamBId],
-  ] as const) {
-    const marks = game.lineup
-      .filter((entry) => entry.teamId.equals(teamId))
-      .map((entry) => points[String(entry.playerId)] > 0)
-
-    if (new Set(marks).size > 1) {
-      return {
-        ok: false,
-        errors: {
-          points: [
-            `Team ${label}'s players must all be marked the same way — partners win or lose together.`,
-          ],
-        },
-      }
-    }
-
-    sides[label] = marks[0] ?? false
-  }
-
-  // And the two sides must differ — every game ends with exactly one winner.
-  if (sides.A === sides.B) {
-    return {
-      ok: false,
-      errors: {
-        points: [
-          sides.A
-            ? 'Both teams are marked as winners. Exactly one team must win.'
-            : 'Both teams are marked as losers. Exactly one team must win.',
+        teamBScore: [
+          'A knockout tie cannot end level — one side has to go through. Enter a decisive score.',
         ],
       },
     }
   }
 
-  const saved = await recordScores(id, points)
+  const saved = await recordTeamScores(id, teamAScore!, teamBScore!)
   if (!saved) return { ok: false, message: 'That game no longer exists.' }
 
   await refreshDraw(saved.tournamentId)
 
   const winner = await Team.findById(saved.winnerTeamId).select('name').lean()
   const label = gameLabel(saved.number)
+  const outcome = winner ? `${winner.name} won ${Math.max(teamAScore!, teamBScore!)}–${Math.min(teamAScore!, teamBScore!)}.` : `It finished level at ${teamAScore}–${teamBScore}.`
 
   revalidatePath('/games')
   revalidatePath(`/games/${id}`)
   revalidatePath('/dashboard')
   revalidatePath('/tournaments')
-  redirect(
-    `/games/${id}?ok=${encodeURIComponent(`Result saved for ${label}. ${winner?.name ?? 'The winner'} won.`)}`,
-  )
+  redirect(`/games/${id}?ok=${encodeURIComponent(`Result saved for ${label}. ${outcome}`)}`)
 }
 
-/** Put a completed game back into scoring so a mistake can be corrected. */
 export async function reopenGameAction(formData: FormData): Promise<void> {
   await requireEditorOrRedirect('/games')
 

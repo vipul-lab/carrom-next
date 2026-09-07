@@ -14,7 +14,9 @@ import {
  * line-up and the result are written in a single document update, which removes
  * the need for the transactions the Laravel service wrapped every write in.
  *
- * `points` is 1 when the player was on the winning side and 0 otherwise.
+ * `points` carries the team's score for that game, copied onto each member of
+ * the side. Storing it per appearance is what lets a player's career total be
+ * derived by summing their own rows.
  */
 export interface LineupEntry {
   playerId: Types.ObjectId
@@ -83,7 +85,7 @@ const LineupSchema = new Schema<LineupEntry>(
   {
     playerId: { type: Schema.Types.ObjectId, ref: 'Player', required: true },
     teamId: { type: Schema.Types.ObjectId, ref: 'Team', required: true },
-    points: { type: Number, default: 0, min: 0, max: 1 },
+    points: { type: Number, default: 0, min: 0 },
   },
   { _id: false },
 )

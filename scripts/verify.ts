@@ -32,7 +32,7 @@ async function main() {
   const { Team } = await import('../src/lib/models/Team')
   const { Player } = await import('../src/lib/models/Player')
   const { Game } = await import('../src/lib/models/Game')
-  const { createGame, recordScores, reopenGame, deleteGame, updateGame } = await import(
+  const { createGame, recordTeamScores, reopenGame, deleteGame, updateGame } = await import(
     '../src/lib/services/game-score'
   )
   const stats = await import('../src/lib/services/stats')
@@ -352,14 +352,16 @@ async function main() {
   const sideA = target.lineup.filter((l) => String(l.teamId) === String(target.teamAId))
   const sideB = target.lineup.filter((l) => String(l.teamId) === String(target.teamBId))
 
-  const marks: Record<string, number> = {}
-  sideA.forEach((l) => (marks[String(l.playerId)] = 1))
-  sideB.forEach((l) => (marks[String(l.playerId)] = 0))
-
-  const scored = await recordScores(String(target._id), marks)
+  const scored = await recordTeamScores(String(target._id), 25, 18)
   check('recording a result completes the game', scored!.status === 'completed')
-  check('team A is the winner', String(scored!.winnerTeamId) === String(target.teamAId))
-  check('the score is 1–0', scored!.teamAScore === 1 && scored!.teamBScore === 0)
+  check('the higher score wins', String(scored!.winnerTeamId) === String(target.teamAId))
+  check('the scoreline is stored as entered', scored!.teamAScore === 25 && scored!.teamBScore === 18)
+  check(
+    "each player carries their own side's score",
+    scored!.lineup
+      .filter((l) => String(l.teamId) === String(target.teamAId))
+      .every((l) => l.points === 25),
+  )
 
   const afterScore = await stats.listTeams(ALL_TIME)
   check(
@@ -382,8 +384,8 @@ async function main() {
     (await stats.listTeams(ALL_TIME)).reduce((s, t) => s + t.winsCount, 0) === completedCount,
   )
 
-  // Line-up edits preserve the marks of players who stay.
-  await recordScores(String(target._id), marks)
+  // Line-up edits preserve the score of players who stay.
+  await recordTeamScores(String(target._id), 25, 18)
   const swapped = await Player.findOne({
     teamId: target.teamAId,
     status: 'active',
@@ -405,7 +407,7 @@ async function main() {
     const keptEntry = edited!.lineup.find((l) => String(l.playerId) === kept)
     const newEntry = edited!.lineup.find((l) => String(l.playerId) === String(swapped._id))
 
-    check('a retained player keeps their mark', keptEntry?.points === 1, keptEntry?.points)
+    check("a retained player keeps their side's score", keptEntry?.points === 25, keptEntry?.points)
     check('a swapped-in player starts at 0', newEntry?.points === 0, newEntry?.points)
     check('the winner is still resolved', edited!.winnerTeamId !== null)
   }
