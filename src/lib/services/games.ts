@@ -1,7 +1,7 @@
 import 'server-only'
 import { Types, type PipelineStage } from 'mongoose'
-import { Game, gameLabel } from '../models/Game'
-import { formatLabel, type GameFormat, type GameStatus } from '../enums'
+import { Game, gameLabel, type GameSource } from '../models/Game'
+import { formatLabel, type GameFormat, type GameStage, type GameStatus } from '../enums'
 import { periodMatch, type StatsPeriod } from '../stats-period'
 import { ALL_GAMES, scopeFromParams, scopeMatch, type GameScope } from '../game-scope'
 import { searchRegex, type TeamRef } from './stats'
@@ -31,6 +31,14 @@ export interface GameView {
   label: string
   /** null for a friendly. */
   tournament: TournamentRef | null
+  stage: GameStage
+  /** 'A'-'D' for a group game, null for a knockout tie. */
+  groupName: string | null
+  /** The fixture's label in the draw: 'A-1', 'QF-3', 'FINAL'. */
+  slot: string | null
+  /** Where each side comes from while it is still undecided. */
+  teamAFrom: GameSource | null
+  teamBFrom: GameSource | null
   format: GameFormat
   formatLabel: string
   gameDate: string
@@ -73,6 +81,11 @@ function toGame(row: any): GameView {
     tournament: tournamentDoc
       ? { id: String(tournamentDoc._id), name: tournamentDoc.name }
       : null,
+    stage: row.stage ?? 'group',
+    groupName: row.groupName ?? null,
+    slot: row.slot ?? null,
+    teamAFrom: row.teamAFrom ?? null,
+    teamBFrom: row.teamBFrom ?? null,
     format: row.format,
     formatLabel: formatLabel(row.format),
     gameDate: new Date(row.gameDate).toISOString(),
@@ -161,6 +174,8 @@ function hydrationStages(withPlayers: boolean): PipelineStage[] {
 }
 
 export interface GameFilters {
+  stage?: string | null
+  groupName?: string | null
   search?: string | null
   teamId?: string | null
   playerId?: string | null
@@ -213,6 +228,8 @@ async function buildGameMatch(filters: GameFilters): Promise<Record<string, unkn
 
   if (filters.format) and.push({ format: filters.format })
   if (filters.status) and.push({ status: filters.status })
+  if (filters.stage) and.push({ stage: filters.stage })
+  if (filters.groupName) and.push({ groupName: filters.groupName })
 
   const scope = scopeMatch(scopeFromParams(filters.scope, filters.tournamentId))
   if (Object.keys(scope).length) and.push(scope)

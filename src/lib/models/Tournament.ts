@@ -8,9 +8,17 @@ import { TOURNAMENT_STATUSES, type TournamentStatus } from '../enums'
  * there is no separate "friendly" record to keep in step, and a game can be
  * moved in or out of a tournament by changing one field.
  */
+/** One group in the draw: a letter and the pairs drawn into it. */
+export interface TournamentGroup {
+  name: string
+  teamIds: Types.ObjectId[]
+}
+
 export interface TournamentDoc {
   _id: Types.ObjectId
   name: string
+  /** Empty for a tournament that is a flat list of games rather than a draw. */
+  groups: TournamentGroup[]
   description: string | null
   startDate: Date
   endDate: Date | null
@@ -19,9 +27,18 @@ export interface TournamentDoc {
   updatedAt: Date
 }
 
+const GroupSchema = new Schema<TournamentGroup>(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 8 },
+    teamIds: [{ type: Schema.Types.ObjectId, ref: 'Team' }],
+  },
+  { _id: false },
+)
+
 const TournamentSchema = new Schema<TournamentDoc>(
   {
     name: { type: String, required: true, trim: true, maxlength: 120 },
+    groups: { type: [GroupSchema], default: [] },
     description: { type: String, default: null },
     startDate: { type: Date, required: true },
     // Open-ended while a tournament is still running.

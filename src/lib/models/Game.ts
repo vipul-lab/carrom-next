@@ -1,5 +1,12 @@
 import mongoose, { Schema, type Model, type Types } from 'mongoose'
-import { GAME_FORMATS, GAME_STATUSES, type GameFormat, type GameStatus } from '../enums'
+import {
+  GAME_FORMATS,
+  GAME_STAGES,
+  GAME_STATUSES,
+  type GameFormat,
+  type GameStage,
+  type GameStatus,
+} from '../enums'
 
 /**
  * One player's appearance in a game. In the SQL version this was the
@@ -15,14 +22,43 @@ export interface LineupEntry {
   points: number
 }
 
+/**
+ * The origin of one side of a knockout tie: a finishing position in a group,
+ * or the winner of an earlier fixture.
+ */
+export interface GameSource {
+  kind: 'group' | 'winner'
+  /** kind 'group': which group, and 1st or 2nd. */
+  group?: string | null
+  position?: number | null
+  /** kind 'winner': the slot of the fixture it feeds from, e.g. 'QF-1'. */
+  slot?: string | null
+}
+
 export interface GameDoc {
   _id: Types.ObjectId
   number: number
   /** null means this was a friendly, played outside any tournament. */
   tournamentId: Types.ObjectId | null
+  stage: GameStage
+  /** 'A'-'D' for a group game, null for a knockout tie. */
+  groupName: string | null
+  /** The fixture's label in the draw: 'A-1', 'QF-3', 'FINAL'. */
+  slot: string | null
   format: GameFormat
-  teamAId: Types.ObjectId
-  teamBId: Types.ObjectId
+  /**
+   * Null until the tie has an opponent. A knockout fixture exists before its
+   * teams are known — the placeholder below says where each side comes from.
+   */
+  teamAId: Types.ObjectId | null
+  teamBId: Types.ObjectId | null
+  /**
+   * Where each side comes from while it is still undecided. Structured rather
+   * than a display string so the draw can be resolved by looking it up, not by
+   * parsing prose.
+   */
+  teamAFrom: GameSource | null
+  teamBFrom: GameSource | null
   teamAScore: number
   teamBScore: number
   winnerTeamId: Types.ObjectId | null
@@ -32,6 +68,16 @@ export interface GameDoc {
   createdAt: Date
   updatedAt: Date
 }
+
+const SourceSchema = new Schema<GameSource>(
+  {
+    kind: { type: String, enum: ['group', 'winner'], required: true },
+    group: { type: String, default: null },
+    position: { type: Number, default: null },
+    slot: { type: String, default: null },
+  },
+  { _id: false },
+)
 
 const LineupSchema = new Schema<LineupEntry>(
   {
@@ -46,9 +92,14 @@ const GameSchema = new Schema<GameDoc>(
   {
     number: { type: Number, required: true, unique: true },
     tournamentId: { type: Schema.Types.ObjectId, ref: 'Tournament', default: null },
+    stage: { type: String, enum: GAME_STAGES, default: 'group' },
+    groupName: { type: String, default: null },
+    slot: { type: String, default: null },
     format: { type: String, enum: GAME_FORMATS, default: '2v2' },
-    teamAId: { type: Schema.Types.ObjectId, ref: 'Team', required: true },
-    teamBId: { type: Schema.Types.ObjectId, ref: 'Team', required: true },
+    teamAId: { type: Schema.Types.ObjectId, ref: 'Team', default: null },
+    teamBId: { type: Schema.Types.ObjectId, ref: 'Team', default: null },
+    teamAFrom: { type: SourceSchema, default: null },
+    teamBFrom: { type: SourceSchema, default: null },
     // 1 = won, 0 = lost. Derived from the line-up, never client-supplied.
     teamAScore: { type: Number, default: 0 },
     teamBScore: { type: Number, default: 0 },
@@ -62,6 +113,8 @@ const GameSchema = new Schema<GameDoc>(
 
 GameSchema.index({ gameDate: -1 })
 GameSchema.index({ tournamentId: 1, gameDate: -1 })
+GameSchema.index({ tournamentId: 1, stage: 1, slot: 1 })
+GameSchema.index({ tournamentId: 1, groupName: 1 })
 GameSchema.index({ status: 1, gameDate: -1 })
 GameSchema.index({ format: 1 })
 GameSchema.index({ teamAId: 1 })

@@ -75,7 +75,8 @@ function buildLineup(
  * max() rather than a strict all-or-nothing check keeps the result stable if a
  * player is swapped into an already-scored game.
  */
-function sideWon(lineup: LineupEntry[], teamId: Types.ObjectId): boolean {
+function sideWon(lineup: LineupEntry[], teamId: Types.ObjectId | null): boolean {
+  if (!teamId) return false
   return lineup.some((entry) => entry.teamId.equals(teamId) && entry.points > 0)
 }
 
@@ -88,6 +89,15 @@ function sideWon(lineup: LineupEntry[], teamId: Types.ObjectId): boolean {
  * sides never agree, so a completed game always has a winner.
  */
 export function recalculate(game: GameDoc): GameDoc {
+  // A knockout tie exists before its teams are known; until both sides are
+  // filled in there is nothing to score.
+  if (!game.teamAId || !game.teamBId) {
+    game.teamAScore = 0
+    game.teamBScore = 0
+    game.winnerTeamId = null
+    return game
+  }
+
   const teamAWon = sideWon(game.lineup, game.teamAId)
   const teamBWon = sideWon(game.lineup, game.teamBId)
 

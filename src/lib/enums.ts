@@ -39,6 +39,37 @@ export function gameStatusVariant(status: GameStatus): 'warning' | 'success' | '
   return status === 'scheduled' ? 'warning' : status === 'completed' ? 'success' : 'danger'
 }
 
+/**
+ * Where a game sits in a tournament. Group games are played first and decide
+ * the seedings; the knockout rounds are drawn from those standings.
+ */
+export const GAME_STAGES = ['group', 'quarter', 'semi', 'final'] as const
+export type GameStage = (typeof GAME_STAGES)[number]
+
+export const STAGE_OPTIONS: Record<GameStage, string> = {
+  group: 'Group stage',
+  quarter: 'Quarter-final',
+  semi: 'Semi-final',
+  final: 'Final',
+}
+
+export function stageLabel(stage: GameStage): string {
+  return STAGE_OPTIONS[stage] ?? 'Group stage'
+}
+
+export function stageVariant(stage: GameStage): 'muted' | 'info' | 'warning' | 'gold' {
+  switch (stage) {
+    case 'quarter':
+      return 'info'
+    case 'semi':
+      return 'warning'
+    case 'final':
+      return 'gold'
+    default:
+      return 'muted'
+  }
+}
+
 export const TOURNAMENT_STATUSES = ['upcoming', 'active', 'completed', 'cancelled'] as const
 export type TournamentStatus = (typeof TOURNAMENT_STATUSES)[number]
 

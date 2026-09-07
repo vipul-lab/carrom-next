@@ -19,6 +19,8 @@ import { Table, HEAD_ROW } from '@/components/ui/Table'
 import { TeamChip } from '@/components/ui/TeamChip'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { isEditor } from '@/lib/authz'
+import { groupStandings } from '@/lib/services/draw'
+import { GroupTables, GroupFixtures, KnockoutBracket } from './DrawView'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,10 +47,17 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
   // competition, so it stays consistent with every other table in the app.
   const scope = { key: 'one' as const, tournamentId: tournament.id }
 
-  const [games, standings] = await Promise.all([
+  const [games, standings, groups] = await Promise.all([
     listGames({ tournamentId: tournament.id }),
     listTeams(ALL_TIME, { sort: 'wins' }, undefined, scope),
+    groupStandings(tournament.id),
   ])
+
+  // A draw with groups gets the group tables and bracket; a flat tournament
+  // keeps the single overall standings table.
+  const isDraw = groups.length > 0
+  const groupGames = games.filter((g) => g.stage === 'group')
+  const knockouts = games.filter((g) => g.stage !== 'group')
 
   const contenders = standings.filter((team) => team.gamesCount > 0)
   const canEdit = await isEditor()
@@ -98,154 +107,183 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
         <StatCard label="Teams" value={tournament.teamsCount} icon="shield" tone="navy" />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        {/* Standings */}
-        <Card
-          className="xl:col-span-2"
-          title="Standings"
-          subtitle="Built from this tournament's completed games only"
-          padding="p-0"
-        >
-          {contenders.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                icon="trophy"
-                title="No results yet"
-                description="Standings appear once a game in this tournament has been scored."
-              />
-            </div>
-          ) : (
-            <div className="px-5 py-4 sm:px-6">
-              <Table>
-                <thead>
-                  <tr className={HEAD_ROW}>
-                    <th scope="col" className="py-2 pr-3">#</th>
-                    <th scope="col" className="px-3 py-2">Team</th>
-                    <th scope="col" className="px-3 py-2 text-center">P</th>
-                    <th scope="col" className="px-3 py-2 text-center">W</th>
-                    <th scope="col" className="px-3 py-2 text-center">L</th>
-                    <th scope="col" className="py-2 pl-3 text-right">Win %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy-50">
-                  {contenders.map((team, index) => (
-                    <tr key={team.id} className="transition hover:bg-navy-50/70">
-                      <td data-label="#" className="py-3 pr-3">
-                        <RankBadge rank={index + 1} />
-                      </td>
-                      <td data-label="Team" className="px-3 py-3">
-                        <TeamChip team={team} />
-                      </td>
-                      <td data-label="P" className="px-3 py-3 text-center text-sm text-slate-600">
-                        {team.gamesCount}
-                      </td>
-                      <td data-label="W" className="px-3 py-3 text-center text-sm font-semibold text-green-600">
-                        {team.winsCount}
-                      </td>
-                      <td data-label="L" className="px-3 py-3 text-center text-sm font-semibold text-red-500">
-                        {team.lossesCount}
-                      </td>
-                      <td data-label="Win %" className="py-3 pl-3 text-right text-sm font-bold text-blue-600">
-                        {team.winRate}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          )}
-        </Card>
+      {isDraw ? (
+        <div className="space-y-8">
+          <section>
+            <h2 className="mb-4 text-sm font-bold tracking-wide text-navy-500 uppercase">
+              The groups — top two qualify
+            </h2>
+            <GroupTables standings={groups} />
+          </section>
 
-        {/* Fixtures */}
-        <Card
-          className="xl:col-span-3"
-          title="Fixtures"
-          subtitle={`${games.length} game${games.length === 1 ? '' : 's'} in this tournament`}
-          padding="p-0"
-          action={
-            <LinkButton
-              href={`/games?tournament=${tournament.id}`}
-              variant="secondary"
-              size="sm"
-              icon="eye"
-            >
-              All
-            </LinkButton>
-          }
-        >
-          {games.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                icon="board"
-                title="No games yet"
-                description="Add a game and pick this tournament on the form to attach it here."
-                action={
-                  canEdit && (
-                    <LinkButton href={`/games/create?tournament=${tournament.id}`} icon="plus">
-                      Add the first game
-                    </LinkButton>
-                  )
-                }
-              />
-            </div>
-          ) : (
-            <div className="px-5 py-4 sm:px-6">
-              <Table>
-                <thead>
-                  <tr className={HEAD_ROW}>
-                    <th scope="col" className="py-2 pr-3">Game</th>
-                    <th scope="col" className="px-3 py-2">Team A</th>
-                    <th scope="col" className="px-3 py-2">Team B</th>
-                    <th scope="col" className="px-3 py-2">Winner</th>
-                    <th scope="col" className="px-3 py-2">Date</th>
-                    <th scope="col" className="py-2 pl-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy-50">
-                  {games.map((game) => (
-                    <tr key={game.id} className="transition hover:bg-navy-50/70">
-                      <td data-label="Game" className="py-3 pr-3">
-                        <Link
-                          href={`/games/${game.id}`}
-                          className="font-mono text-sm font-semibold text-blue-600 hover:underline"
-                        >
-                          {game.label}
-                        </Link>
-                      </td>
-                      <td data-label="Team A" className="px-3 py-3">
-                        <TeamChip team={game.teamA} />
-                      </td>
-                      <td data-label="Team B" className="px-3 py-3">
-                        <TeamChip team={game.teamB} />
-                      </td>
-                      <td data-label="Winner" className="px-3 py-3">
-                        {game.status === 'completed' && game.winner ? (
-                          <Badge variant="gold" icon="trophy">
-                            {game.winner.name}
-                          </Badge>
-                        ) : (
-                          <span className="text-sm text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td
-                        data-label="Date"
-                        className="px-3 py-3 text-sm whitespace-nowrap text-slate-600"
-                      >
-                        {formatDate(game.gameDate)}
-                      </td>
-                      <td data-label="Status" className="py-3 pl-3 text-center">
-                        <Badge variant={gameStatusVariant(game.status)}>
-                          {capitalise(game.status)}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
+          <section>
+            <h2 className="mb-4 text-sm font-bold tracking-wide text-navy-500 uppercase">
+              Group stage
+            </h2>
+            <GroupFixtures games={groupGames} />
+          </section>
+
+          {knockouts.length > 0 && (
+            <section>
+              <h2 className="mb-4 text-sm font-bold tracking-wide text-navy-500 uppercase">
+                Knockouts
+              </h2>
+              <KnockoutBracket games={knockouts} />
+            </section>
           )}
-        </Card>
-      </div>
+        </div>
+      ) : (
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+          {/* Standings */}
+          <Card
+            className="xl:col-span-2"
+            title="Standings"
+            subtitle="Built from this tournament's completed games only"
+            padding="p-0"
+          >
+            {contenders.length === 0 ? (
+              <div className="p-6">
+                <EmptyState
+                  icon="trophy"
+                  title="No results yet"
+                  description="Standings appear once a game in this tournament has been scored."
+                />
+              </div>
+            ) : (
+              <div className="px-5 py-4 sm:px-6">
+                <Table>
+                  <thead>
+                    <tr className={HEAD_ROW}>
+                      <th scope="col" className="py-2 pr-3">#</th>
+                      <th scope="col" className="px-3 py-2">Team</th>
+                      <th scope="col" className="px-3 py-2 text-center">P</th>
+                      <th scope="col" className="px-3 py-2 text-center">W</th>
+                      <th scope="col" className="px-3 py-2 text-center">L</th>
+                      <th scope="col" className="py-2 pl-3 text-right">Win %</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-50">
+                    {contenders.map((team, index) => (
+                      <tr key={team.id} className="transition hover:bg-navy-50/70">
+                        <td data-label="#" className="py-3 pr-3">
+                          <RankBadge rank={index + 1} />
+                        </td>
+                        <td data-label="Team" className="px-3 py-3">
+                          <TeamChip team={team} />
+                        </td>
+                        <td data-label="P" className="px-3 py-3 text-center text-sm text-slate-600">
+                          {team.gamesCount}
+                        </td>
+                        <td data-label="W" className="px-3 py-3 text-center text-sm font-semibold text-green-600">
+                          {team.winsCount}
+                        </td>
+                        <td data-label="L" className="px-3 py-3 text-center text-sm font-semibold text-red-500">
+                          {team.lossesCount}
+                        </td>
+                        <td data-label="Win %" className="py-3 pl-3 text-right text-sm font-bold text-blue-600">
+                          {team.winRate}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            )}
+          </Card>
+
+          {/* Fixtures */}
+          <Card
+            className="xl:col-span-3"
+            title="Fixtures"
+            subtitle={`${games.length} game${games.length === 1 ? '' : 's'} in this tournament`}
+            padding="p-0"
+            action={
+              <LinkButton
+                href={`/games?tournament=${tournament.id}`}
+                variant="secondary"
+                size="sm"
+                icon="eye"
+              >
+                All
+              </LinkButton>
+            }
+          >
+            {games.length === 0 ? (
+              <div className="p-6">
+                <EmptyState
+                  icon="board"
+                  title="No games yet"
+                  description="Add a game and pick this tournament on the form to attach it here."
+                  action={
+                    canEdit && (
+                      <LinkButton href={`/games/create?tournament=${tournament.id}`} icon="plus">
+                        Add the first game
+                      </LinkButton>
+                    )
+                  }
+                />
+              </div>
+            ) : (
+              <div className="px-5 py-4 sm:px-6">
+                <Table>
+                  <thead>
+                    <tr className={HEAD_ROW}>
+                      <th scope="col" className="py-2 pr-3">Game</th>
+                      <th scope="col" className="px-3 py-2">Team A</th>
+                      <th scope="col" className="px-3 py-2">Team B</th>
+                      <th scope="col" className="px-3 py-2">Winner</th>
+                      <th scope="col" className="px-3 py-2">Date</th>
+                      <th scope="col" className="py-2 pl-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-50">
+                    {games.map((game) => (
+                      <tr key={game.id} className="transition hover:bg-navy-50/70">
+                        <td data-label="Game" className="py-3 pr-3">
+                          <Link
+                            href={`/games/${game.id}`}
+                            className="font-mono text-sm font-semibold text-blue-600 hover:underline"
+                          >
+                            {game.label}
+                          </Link>
+                        </td>
+                        <td data-label="Team A" className="px-3 py-3">
+                          <TeamChip team={game.teamA} />
+                        </td>
+                        <td data-label="Team B" className="px-3 py-3">
+                          <TeamChip team={game.teamB} />
+                        </td>
+                        <td data-label="Winner" className="px-3 py-3">
+                          {game.status === 'completed' && game.winner ? (
+                            <Badge variant="gold" icon="trophy">
+                              {game.winner.name}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td
+                          data-label="Date"
+                          className="px-3 py-3 text-sm whitespace-nowrap text-slate-600"
+                        >
+                          {formatDate(game.gameDate)}
+                        </td>
+                        <td data-label="Status" className="py-3 pl-3 text-center">
+                          <Badge variant={gameStatusVariant(game.status)}>
+                            {capitalise(game.status)}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            )}
+          </Card>
+        </div>
+
+      )}
+
     </>
   )
 }

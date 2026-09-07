@@ -19,6 +19,16 @@ import {
 import { GAME_FORMATS, GAME_STATUSES, formatLabel, playersPerTeam, type GameFormat } from '@/lib/enums'
 import type { ActionState } from '@/lib/action-state'
 import { FORBIDDEN, isEditor, requireEditorOrRedirect } from '@/lib/authz'
+import { resolveDraw } from '@/lib/services/draw'
+
+/**
+ * Push a result through the draw. A group game may have decided a qualifying
+ * place, and a knockout win feeds the next round — both are recomputed from the
+ * current standings rather than patched, so a corrected result propagates too.
+ */
+async function refreshDraw(tournamentId: unknown): Promise<void> {
+  if (tournamentId) await resolveDraw(String(tournamentId))
+}
 
 /**
  * Game creation and editing, including every line-up business rule: the two
@@ -316,12 +326,15 @@ export async function recordScoreAction(
   const saved = await recordScores(id, points)
   if (!saved) return { ok: false, message: 'That game no longer exists.' }
 
+  await refreshDraw(saved.tournamentId)
+
   const winner = await Team.findById(saved.winnerTeamId).select('name').lean()
   const label = gameLabel(saved.number)
 
   revalidatePath('/games')
   revalidatePath(`/games/${id}`)
   revalidatePath('/dashboard')
+  revalidatePath('/tournaments')
   redirect(
     `/games/${id}?ok=${encodeURIComponent(`Result saved for ${label}. ${winner?.name ?? 'The winner'} won.`)}`,
   )
@@ -338,8 +351,12 @@ export async function reopenGameAction(formData: FormData): Promise<void> {
   const game = await reopenGame(id)
   if (!game) redirect('/games?err=That+game+no+longer+exists.')
 
+  // Reopening can un-decide a qualifying place, so the draw is recomputed.
+  await refreshDraw(game.tournamentId)
+
   revalidatePath('/games')
   revalidatePath(`/games/${id}`)
+  revalidatePath('/tournaments')
   redirect(
     `/games/${id}/score?ok=${encodeURIComponent(`Game ${gameLabel(game.number)} was reopened for scoring.`)}`,
   )
