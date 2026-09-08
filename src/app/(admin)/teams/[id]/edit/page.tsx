@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { connectToDatabase } from '@/lib/db'
 import { findTeamWithStats } from '@/lib/services/stats'
+import { teamGameCounts } from '@/lib/services/deletion'
 import { ALL_TIME } from '@/lib/stats-period'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { TeamForm } from '../../TeamForm'
@@ -17,6 +18,9 @@ export default async function EditTeamPage({ params }: { params: Promise<{ id: s
   const team = await findTeamWithStats(id, ALL_TIME)
   if (!team) notFound()
 
+  // The delete dialog says exactly what will happen, so it needs the split.
+  const counts = await teamGameCounts(id)
+
   return (
     <>
       <PageHeader
@@ -28,7 +32,7 @@ export default async function EditTeamPage({ params }: { params: Promise<{ id: s
           { label: 'Edit' },
         ]}
       />
-      <TeamForm team={team} />
+      <TeamForm team={team} played={counts.played} unplayed={counts.unplayed} />
     </>
   )
 }

@@ -10,12 +10,32 @@ import { Game } from '../models/Game'
  * would rewrite match history. The UI offers "set to inactive" instead.
  */
 
-/** How many games this team has taken part in, on either side of the board. */
-export async function teamGameCount(teamId: string): Promise<number> {
-  if (!Types.ObjectId.isValid(teamId)) return 0
+/**
+ * How many games this team appears in, split by whether they have been played.
+ *
+ * The distinction is what makes deleting a team safe or not: a completed game
+ * is match history and must not be rewritten, while a fixture that has never
+ * been played carries no result and can go with the team.
+ */
+export async function teamGameCounts(
+  teamId: string,
+): Promise<{ played: number; unplayed: number; total: number }> {
+  if (!Types.ObjectId.isValid(teamId)) return { played: 0, unplayed: 0, total: 0 }
 
   const id = new Types.ObjectId(teamId)
-  return Game.countDocuments({ $or: [{ teamAId: id }, { teamBId: id }] })
+  const involved = { $or: [{ teamAId: id }, { teamBId: id }] }
+
+  const [played, total] = await Promise.all([
+    Game.countDocuments({ ...involved, status: 'completed' }),
+    Game.countDocuments(involved),
+  ])
+
+  return { played, unplayed: total - played, total }
+}
+
+/** How many games this team has taken part in, on either side of the board. */
+export async function teamGameCount(teamId: string): Promise<number> {
+  return (await teamGameCounts(teamId)).total
 }
 
 /** How many games this member has been fielded in. */

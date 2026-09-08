@@ -19,7 +19,17 @@ import { deleteTeamAction } from '@/actions/teams'
 import type { TeamWithStats } from '@/lib/services/stats'
 
 /** Shared by teams/create and teams/[id]/edit. */
-export function TeamForm({ team }: { team?: TeamWithStats }) {
+export function TeamForm({
+  team,
+  played = 0,
+  unplayed = 0,
+}: {
+  team?: TeamWithStats
+  /** Completed games — these block deletion outright. */
+  played?: number
+  /** Fixtures with no result — these are deleted along with the team. */
+  unplayed?: number
+}) {
   const editing = Boolean(team)
   const [state, formAction] = useActionState(
     editing ? updateTeamAction : createTeamAction,
@@ -151,9 +161,27 @@ export function TeamForm({ team }: { team?: TeamWithStats }) {
               action={deleteTeamAction}
               hiddenFields={{ id: team!.id }}
             >
-              Deleting <strong className="text-navy-900">{team!.name}</strong> also unassigns its
-              members. Teams that have already played a game cannot be deleted — set them to inactive
-              instead.
+              {played > 0 ? (
+                <>
+                  <strong className="text-navy-900">{team!.name}</strong> has played{' '}
+                  <strong className="text-navy-900">{played}</strong> game
+                  {played === 1 ? '' : 's'}, so it cannot be deleted — those results are part of the
+                  record. Set the team to inactive instead.
+                </>
+              ) : (
+                <>
+                  Deleting <strong className="text-navy-900">{team!.name}</strong> unassigns its
+                  members — they stay on the roster.
+                  {unplayed > 0 && (
+                    <>
+                      {' '}
+                      Its <strong className="text-navy-900">{unplayed}</strong> unplayed fixture
+                      {unplayed === 1 ? '' : 's'} will be deleted too, which removes them from any
+                      draw they belong to.
+                    </>
+                  )}
+                </>
+              )}
             </ConfirmDialog>
           ) : (
             <span />

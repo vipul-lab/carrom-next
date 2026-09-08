@@ -149,6 +149,10 @@ async function main() {
   const upsertGame = async (slot: string, fields: Record<string, unknown>) => {
     const existing = await Game.findOne({ tournamentId: tournament._id, slot })
     if (existing) {
+      // Never touch a fixture that has been played. Re-running the seeder is
+      // for repairing the draw, not for discarding results already recorded.
+      if (existing.status === 'completed') return
+
       existing.set(fields)
       await existing.save()
       return

@@ -6,8 +6,9 @@ import { Types } from 'mongoose'
 import { z } from 'zod'
 import { connectToDatabase } from '@/lib/db'
 import { Team } from '@/lib/models/Team'
+import { Game } from '@/lib/models/Game'
 import { Player } from '@/lib/models/Player'
-import { teamGameCount } from '@/lib/services/deletion'
+import { teamGameCounts } from '@/lib/services/deletion'
 import { deleteImage, hasFile, storeImage, UploadError, validateImage } from '@/lib/blob'
 import { RECORD_STATUSES } from '@/lib/enums'
 import type { ActionState } from '@/lib/action-state'
@@ -157,23 +158,40 @@ export async function deleteTeamAction(formData: FormData): Promise<void> {
   const team = await Team.findById(id)
   if (!team) redirect('/teams?err=That+team+no+longer+exists.')
 
-  // A team that has played cannot be removed without destroying match history.
-  const gameCount = await teamGameCount(id)
+  // A completed game is match history — deleting one of its teams would
+  // rewrite the record, so that is refused. Fixtures that were never played
+  // hold no result and are removed along with the team.
+  const { played, unplayed } = await teamGameCounts(id)
 
-  if (gameCount > 0) {
+  if (played > 0) {
     redirect(
       `/teams/${id}?err=${encodeURIComponent(
-        `"${team.name}" has played ${gameCount} game(s) and cannot be deleted. Set it to inactive instead.`,
+        `"${team.name}" has played ${played} game(s) and cannot be deleted, because its results are part of the record. Set it to inactive instead.`,
       )}`,
     )
   }
 
+  const teamId = new Types.ObjectId(id)
   const name = team.name
+
   await deleteImage(team.logo)
   // Deleting a team unassigns its members rather than deleting them.
-  await Player.updateMany({ teamId: new Types.ObjectId(id) }, { $set: { teamId: null } })
+  await Player.updateMany({ teamId }, { $set: { teamId: null } })
+
+  if (unplayed > 0) {
+    await Game.deleteMany({ $or: [{ teamAId: teamId }, { teamBId: teamId }] })
+  }
+
   await team.deleteOne()
 
   revalidatePath('/teams')
-  redirect(`/teams?ok=${encodeURIComponent(`Team "${name}" was deleted.`)}`)
+  revalidatePath('/games')
+  revalidatePath('/tournaments')
+
+  const note =
+    unplayed > 0
+      ? `Team "${name}" and its ${unplayed} unplayed fixture(s) were deleted.`
+      : `Team "${name}" was deleted.`
+
+  redirect(`/teams?ok=${encodeURIComponent(note)}`)
 }
